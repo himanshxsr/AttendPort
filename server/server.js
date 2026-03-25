@@ -50,6 +50,11 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 
+// Health check route for Uptime Robot
+app.get('/ping', (req, res) => {
+  res.status(200).send('pong');
+});
+
 // Error handler
 app.use(errorHandler);
 
