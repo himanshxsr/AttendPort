@@ -3,7 +3,6 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const passport = require('passport');
 const helmet = require('helmet');
-const mongoSanitize = require('express-mongo-sanitize');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 
