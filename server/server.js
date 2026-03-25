@@ -10,6 +10,19 @@ const errorHandler = require('./middleware/errorHandler');
 // Load env vars
 dotenv.config();
 
+// Diagnostic: Check for required env vars in production
+const requiredEnv = ['MONGO_URI', 'JWT_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
+const missingEnv = requiredEnv.filter(key => !process.env[key]);
+
+if (missingEnv.length > 0) {
+  console.error('❌ Missing required environment variables:', missingEnv.join(', '));
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Deployment will fail because these keys are not set in the Render Dashboard.');
+  }
+} else {
+  console.log('✅ All required environment variables are present.');
+}
+
 // Connect to database
 connectDB();
 
