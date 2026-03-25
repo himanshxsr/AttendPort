@@ -34,9 +34,6 @@ app.use(express.json());
 // Set security HTTP headers
 app.use(helmet());
 
-// Data sanitization against NoSQL query injection
-app.use(mongoSanitize());
-
 // Enable CORS with restriction
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
