@@ -170,21 +170,6 @@ const LoginPage = () => {
           Sign in with Google
         </button>
 
-        <p style={{
-          textAlign: 'center',
-          marginTop: '1.5rem',
-          fontSize: '0.875rem',
-          color: 'var(--text-secondary)',
-        }}>
-          Don't have an account?{' '}
-          <Link to="/register" style={{
-            color: 'var(--accent-indigo)',
-            textDecoration: 'none',
-            fontWeight: 600,
-          }}>
-            Sign Up
-          </Link>
-        </p>
       </div>
     </div>
   );
