@@ -210,11 +210,18 @@ const AdminPage = () => {
   };
 
   const getStatusDisplay = (log) => {
-    const isToday = log.date === new Date().toISOString().split('T')[0];
+    if (!log) return '--';
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isToday = log.date === todayStr;
+    const isFuture = log.date > todayStr;
+
+    if (isFuture) {
+      // Only show status if it's a Holiday
+      if (log.status?.toLowerCase() === 'holiday') return 'HOLIDAY';
+      return '--';
+    }
+
     if (log.totalHours === 0) {
-      // If it's today and they haven't worked yet, show --
-      // If they are checked in right now, show ACTIVE? 
-      // Actually, if checkIn exists but checkOut doesn't, they are active.
       if (isToday) {
         if (log.checkIn && !log.checkOut) return 'ACTIVE';
         return '--';
@@ -228,6 +235,7 @@ const AdminPage = () => {
     const status = getStatusDisplay(log);
     if (status === '--') return 'none';
     if (status === 'ABSENT') return 'absent';
+    if (status === 'HOLIDAY') return 'holiday';
     if (status === 'ACTIVE') return 'present'; // Use present color for active
     return log.status?.toLowerCase() || 'present';
   };

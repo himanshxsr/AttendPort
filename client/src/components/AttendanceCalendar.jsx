@@ -55,13 +55,18 @@ const AttendanceCalendar = ({ logs, holidays, onDateClick }) => {
         }
       }
 
+      const dDate = new Date(year, month, d);
+      const isToday = dateStr === new Date().toISOString().split('T')[0];
+      const isFuture = dDate > new Date(); // Simplified for timing
+
       calendarDays.push({
         day: d,
         date: dateStr,
         status,
         title,
         log: log || { date: dateStr, status: status === 'holiday' ? 'Holiday' : status.charAt(0).toUpperCase() + status.slice(1), totalHours: 0, isVirtual: true },
-        isToday: dateStr === new Date().toISOString().split('T')[0]
+        isToday,
+        isFuture: isFuture && !isToday // Explicitly future
       });
     }
 
@@ -93,39 +98,43 @@ const AttendanceCalendar = ({ logs, holidays, onDateClick }) => {
           <div key={d} style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', paddingBottom: '0.5rem' }}>{d}</div>
         ))}
         
-        {days.map((d, index) => (
-          <div
-            key={index}
-            onClick={() => d.type !== 'empty' && onDateClick && onDateClick(d.log)}
-            className={d.type !== 'empty' ? 'calendar-day-cell' : ''}
-            style={{
-              height: '40px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '0.5rem',
-              fontSize: '0.9rem',
-              fontWeight: 500,
-              background: d.isToday ? 'rgba(59, 130, 246, 0.15)' : // Blue tint for today
-                          d.type === 'empty' ? 'transparent' : 
-                          d.status === 'present' ? 'rgba(16, 185, 129, 0.25)' : // Emerald Green
-                          d.status === 'holiday' ? 'rgba(251, 146, 60, 0.3)' : // Light Saffron (Orange)
-                          d.status === 'absent' ? 'rgba(239, 68, 68, 0.25)' : // Red
-                          'rgba(255, 255, 255, 0.05)',
-              color: d.isToday ? '#3b82f6' : // Blue text for today
-                     d.status === 'present' ? '#10b981' :
-                     d.status === 'holiday' ? '#fb923c' : // Saffron text
-                     d.status === 'absent' ? '#f87171' :
-                     'var(--text-primary)',
-              border: d.isToday ? '2px solid #3b82f6' : '1px solid transparent', // Blue for today
-              cursor: d.type === 'empty' ? 'default' : 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            title={d.title || (d.type !== 'empty' ? 'Click to view details' : '')}
-          >
-            {d.day}
-          </div>
-        ))}
+        {days.map((d, index) => {
+          const isClickable = d.type !== 'empty' && (!d.isFuture || d.status === 'holiday');
+          return (
+            <div
+              key={index}
+              onClick={() => isClickable && onDateClick && onDateClick(d.log)}
+              className={isClickable ? 'calendar-day-cell' : ''}
+              style={{
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '0.5rem',
+                fontSize: '0.9rem',
+                fontWeight: 500,
+                background: d.isToday ? 'rgba(59, 130, 246, 0.15)' : // Blue tint for today
+                            d.type === 'empty' ? 'transparent' : 
+                            d.status === 'present' ? 'rgba(16, 185, 129, 0.25)' : // Emerald Green
+                            d.status === 'holiday' ? 'rgba(251, 146, 60, 0.3)' : // Light Saffron (Orange)
+                            d.status === 'absent' ? 'rgba(239, 68, 68, 0.25)' : // Red
+                            'rgba(255, 255, 255, 0.05)',
+                color: d.isToday ? '#3b82f6' : // Blue text for today
+                       d.status === 'present' ? '#10b981' :
+                       d.status === 'holiday' ? '#fb923c' : // Saffron text
+                       d.status === 'absent' ? '#f87171' :
+                       d.isFuture ? 'rgba(255,255,255,0.2)' : 'var(--text-primary)',
+                border: d.isToday ? '2px solid #3b82f6' : '1px solid transparent', // Blue for today
+                cursor: isClickable ? 'pointer' : 'default',
+                opacity: d.isFuture && d.status !== 'holiday' ? 0.5 : 1,
+                transition: 'all 0.2s ease',
+              }}
+              title={d.title || (isClickable ? 'Click to view details' : '')}
+            >
+              {d.day}
+            </div>
+          );
+        })}
       </div>
 
       <div style={{ marginTop: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '0.75rem' }}>
