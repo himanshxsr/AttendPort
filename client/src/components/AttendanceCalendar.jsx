@@ -103,16 +103,20 @@ const AttendanceCalendar = ({ logs, holidays }) => {
               borderRadius: '0.5rem',
               fontSize: '0.9rem',
               fontWeight: 500,
-              background: d.type === 'empty' ? 'transparent' : 
-                          d.status === 'present' ? 'rgba(16, 185, 129, 0.2)' :
-                          d.status === 'holiday' ? 'rgba(251, 191, 36, 0.3)' : // Yellow for holidays
-                          d.status === 'absent' ? 'rgba(153, 27, 27, 0.7)' : // Dark red for absent
+              background: d.isToday ? 'rgba(59, 130, 246, 0.15)' : // Blue tint for today
+                          d.type === 'empty' ? 'transparent' : 
+                          d.status === 'present' ? 'rgba(16, 185, 129, 0.25)' : // Emerald Green
+                          d.status === 'holiday' ? 'rgba(251, 146, 60, 0.3)' : // Light Saffron (Orange)
+                          d.status === 'absent' ? 'rgba(239, 68, 68, 0.25)' : // Red
+                          d.status === 'late' ? 'rgba(245, 158, 11, 0.25)' : // Yellow/Amber
                           'rgba(255, 255, 255, 0.05)',
-              color: d.status === 'present' ? 'var(--accent-emerald)' :
-                     d.status === 'holiday' ? '#fde68a' : // Light yellow text
-                     d.status === 'absent' ? '#fecaca' :
+              color: d.isToday ? '#3b82f6' : // Blue text for today
+                     d.status === 'present' ? '#10b981' :
+                     d.status === 'holiday' ? '#fb923c' : // Saffron text
+                     d.status === 'absent' ? '#f87171' :
+                     d.status === 'late' ? '#f59e0b' :
                      'var(--text-primary)',
-              border: d.isToday ? '2px solid var(--accent-indigo)' : '1px solid transparent',
+              border: d.isToday ? '2px solid #3b82f6' : '1px solid transparent', // Blue for today
               cursor: d.title ? 'help' : 'default',
             }}
             title={d.title}
@@ -124,16 +128,24 @@ const AttendanceCalendar = ({ logs, holidays }) => {
 
       <div style={{ marginTop: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(16, 185, 129, 0.2)' }}></div>
+          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(16, 185, 129, 0.25)' }}></div>
           <span>Present</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(251, 191, 36, 0.3)' }}></div>
+          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(251, 146, 60, 0.3)' }}></div>
           <span>Holiday/Weekend</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(153, 27, 27, 0.7)' }}></div>
+          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(239, 68, 68, 0.25)' }}></div>
           <span>Absent</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(245, 158, 11, 0.25)' }}></div>
+          <span>Late</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '3px', border: '1.5px solid #3b82f6' }}></div>
+          <span>Today</span>
         </div>
       </div>
     </div>

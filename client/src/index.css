@@ -188,6 +188,11 @@ body {
   }
 }
 
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 /* Status badge */
 .status-badge {
   display: inline-flex;
@@ -203,17 +208,17 @@ body {
 
 .status-badge.present {
   background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
+  color: #04ba1d;
 }
 
 .status-badge.late {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.15);
+  color: #edad3d;
 }
 
 .status-badge.absent {
-  background: rgba(244, 63, 94, 0.15);
-  color: #fb7185;
+  background: rgba(239, 68, 68, 0.15);
+  color: #d10c0c;
 }
 
 .status-badge.none {

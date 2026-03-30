@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import API from '../api/axios';
 import { formatDate, formatHours, getCompleteHistory } from '../utils/formatTime';
-import { Users, Calendar, BarChart3, Search, Trash2 } from 'lucide-react';
+import { Users, Calendar, BarChart3, Search, Trash2, X } from 'lucide-react';
+import AttendanceCalendar from '../components/AttendanceCalendar';
 
 const AdminPage = () => {
   const [attendance, setAttendance] = useState([]);
@@ -20,6 +21,10 @@ const AdminPage = () => {
   const [holidays, setHolidays] = useState([]);
   const [newHoliday, setNewHoliday] = useState({ date: '', name: '' });
   const [manualEntry, setManualEntry] = useState({ userId: '', date: '', status: 'Present' });
+  
+  // Modal states for user-specific calendar
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+  const [selectedUserForCalendar, setSelectedUserForCalendar] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -643,6 +648,30 @@ const AdminPage = () => {
                         </td>
                         <td>{formatDate(u.createdAt)}</td>
                         <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <button
+                            onClick={() => {
+                              setSelectedUserForCalendar(u);
+                              setIsCalendarModalOpen(true);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--accent-indigo)',
+                              cursor: 'pointer',
+                              padding: '0.5rem',
+                              borderRadius: '0.5rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s',
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'none'}
+                            title="View User Calendar"
+                          >
+                            <Calendar size={18} />
+                          </button>
                           <button
                             onClick={() => handleDeleteUser(u._id, u.name)}
                             style={{
@@ -663,6 +692,7 @@ const AdminPage = () => {
                           >
                             <Trash2 size={18} />
                           </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -886,6 +916,73 @@ const AdminPage = () => {
                 {message.text}
               </div>
             )}
+          </div>
+        )}
+
+        {/* User Calendar Modal */}
+        {isCalendarModalOpen && selectedUserForCalendar && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem',
+          }} onClick={() => setIsCalendarModalOpen(false)}>
+            <div style={{
+              width: '100%',
+              maxWidth: '600px',
+              position: 'relative',
+              animation: 'modalFadeIn 0.3s ease-out',
+            }} onClick={(e) => e.stopPropagation()}>
+              <button 
+                onClick={() => setIsCalendarModalOpen(false)}
+                style={{
+                  position: 'absolute',
+                  top: '-15px',
+                  right: '-15px',
+                  width: '35px',
+                  height: '35px',
+                  borderRadius: '50%',
+                  background: '#f43f5e',
+                  color: 'white',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  zIndex: 2,
+                }}
+              >
+                <X size={20} />
+              </button>
+              
+              <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'white' }}>
+                  {selectedUserForCalendar.name}'s Performance
+                </h3>
+                <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>
+                  {selectedUserForCalendar.email}
+                </p>
+              </div>
+
+              <div className="glass-card" style={{ padding: '1.5rem', background: 'rgba(15, 23, 42, 0.95)' }}>
+                <AttendanceCalendar 
+                  logs={getCompleteHistory(
+                    selectedUserForCalendar.createdAt, 
+                    attendance.filter(log => log.userId?._id === selectedUserForCalendar._id)
+                  )} 
+                  holidays={holidays} 
+                />
+              </div>
+            </div>
           </div>
         )}
       </div>
