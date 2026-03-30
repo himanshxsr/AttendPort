@@ -105,12 +105,12 @@ const AttendanceCalendar = ({ logs, holidays }) => {
               fontWeight: 500,
               background: d.type === 'empty' ? 'transparent' : 
                           d.status === 'present' ? 'rgba(16, 185, 129, 0.2)' :
-                          d.status === 'holiday' ? 'rgba(239, 68, 68, 0.2)' :
-                          d.status === 'absent' ? 'rgba(239, 68, 68, 0.1)' :
+                          d.status === 'holiday' ? 'rgba(220, 38, 38, 0.4)' : // Brighter red for holidays
+                          d.status === 'absent' ? 'rgba(153, 27, 27, 0.7)' : // Dark red for absent
                           'rgba(255, 255, 255, 0.05)',
               color: d.status === 'present' ? 'var(--accent-emerald)' :
-                     d.status === 'holiday' ? '#f87171' :
-                     d.status === 'absent' ? '#f87171' :
+                     d.status === 'holiday' ? '#fca5a5' : // Light red text for holiday
+                     d.status === 'absent' ? '#fecaca' : // Very light red text for dark background
                      'var(--text-primary)',
               border: d.isToday ? '2px solid var(--accent-indigo)' : '1px solid transparent',
               cursor: d.title ? 'help' : 'default',
@@ -128,11 +128,11 @@ const AttendanceCalendar = ({ logs, holidays }) => {
           <span>Present</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(239, 68, 68, 0.2)' }}></div>
+          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(220, 38, 38, 0.4)' }}></div>
           <span>Holiday/Weekend</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(239, 68, 68, 0.1)' }}></div>
+          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(153, 27, 27, 0.7)' }}></div>
           <span>Absent</span>
         </div>
       </div>
