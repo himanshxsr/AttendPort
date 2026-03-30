@@ -25,6 +25,7 @@ const AdminPage = () => {
   // Modal states for user-specific calendar
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
   const [selectedUserForCalendar, setSelectedUserForCalendar] = useState(null);
+  const [selectedDateLog, setSelectedDateLog] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -653,6 +654,7 @@ const AdminPage = () => {
                             onClick={() => {
                               setSelectedUserForCalendar(u);
                               setIsCalendarModalOpen(true);
+                              setSelectedDateLog(null);
                             }}
                             style={{
                               background: 'none',
@@ -979,8 +981,51 @@ const AdminPage = () => {
                     attendance.filter(log => log.userId?._id === selectedUserForCalendar._id)
                   )} 
                   holidays={holidays} 
+                  onDateClick={(log) => setSelectedDateLog(log)}
                 />
               </div>
+
+              {/* Performance detail card */}
+              {selectedDateLog && (
+                <div 
+                  className="glass-card" 
+                  style={{ 
+                    marginTop: '1rem', 
+                    padding: '1.25rem', 
+                    background: 'rgba(30, 41, 59, 0.5)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    animation: 'modalFadeIn 0.3s ease-out'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'white' }}>
+                      Performance: {formatDate(selectedDateLog.date)}
+                    </h4>
+                    <span className={`status-badge ${getStatusClass(selectedDateLog)}`} style={{ fontSize: '0.7rem' }}>
+                      {getStatusDisplay(selectedDateLog)}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '0.75rem' }}>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Total Hours</p>
+                      <p style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent-indigo)' }}>
+                        {formatHours(selectedDateLog.totalHours)}
+                      </p>
+                    </div>
+                    {(selectedDateLog.checkIn || selectedDateLog.checkOut) && (
+                      <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '0.75rem' }}>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Timing</p>
+                        <p style={{ fontSize: '0.8rem', color: 'white', fontFamily: 'monospace' }}>
+                          {selectedDateLog.checkIn ? new Date(selectedDateLog.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'} 
+                          {' - '}
+                          {selectedDateLog.checkOut ? new Date(selectedDateLog.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (selectedDateLog.checkIn ? 'Active' : '--:--')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

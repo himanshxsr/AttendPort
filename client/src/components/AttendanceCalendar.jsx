@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-const AttendanceCalendar = ({ logs, holidays }) => {
+const AttendanceCalendar = ({ logs, holidays, onDateClick }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [days, setDays] = useState([]);
 
@@ -30,6 +30,7 @@ const AttendanceCalendar = ({ logs, holidays }) => {
       
       let status = 'none';
       let title = '';
+      let log = null;
 
       // Check for Holiday (including Sat/Sun)
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
@@ -40,12 +41,11 @@ const AttendanceCalendar = ({ logs, holidays }) => {
         title = holiday ? holiday.name : isWeekend ? 'Weekend' : '';
       } else {
         // Check attendance log
-        const log = logs?.find(l => l.date === dateStr);
+        log = logs?.find(l => l.date === dateStr);
         if (log) {
           status = log.status.toLowerCase(); // 'present', 'absent'
         } else {
           // If in the past and no log, it's Absent? 
-          // Actually, let's keep it 'none' if it's future or today
           const dDate = new Date(year, month, d);
           const today = new Date();
           today.setHours(0,0,0,0);
@@ -60,6 +60,7 @@ const AttendanceCalendar = ({ logs, holidays }) => {
         date: dateStr,
         status,
         title,
+        log: log || { date: dateStr, status: status === 'holiday' ? 'Holiday' : status.charAt(0).toUpperCase() + status.slice(1), totalHours: 0, isVirtual: true },
         isToday: dateStr === new Date().toISOString().split('T')[0]
       });
     }
@@ -95,6 +96,8 @@ const AttendanceCalendar = ({ logs, holidays }) => {
         {days.map((d, index) => (
           <div
             key={index}
+            onClick={() => d.type !== 'empty' && onDateClick && onDateClick(d.log)}
+            className={d.type !== 'empty' ? 'calendar-day-cell' : ''}
             style={{
               height: '40px',
               display: 'flex',
@@ -115,9 +118,10 @@ const AttendanceCalendar = ({ logs, holidays }) => {
                      d.status === 'absent' ? '#f87171' :
                      'var(--text-primary)',
               border: d.isToday ? '2px solid #3b82f6' : '1px solid transparent', // Blue for today
-              cursor: d.title ? 'help' : 'default',
+              cursor: d.type === 'empty' ? 'default' : 'pointer',
+              transition: 'all 0.2s ease',
             }}
-            title={d.title}
+            title={d.title || (d.type !== 'empty' ? 'Click to view details' : '')}
           >
             {d.day}
           </div>
