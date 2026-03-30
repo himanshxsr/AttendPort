@@ -204,7 +204,7 @@ const AdminPage = () => {
       (log) => 
         log.userId?._id === userId && 
         log.totalHours > 0 && 
-        (log.status?.toUpperCase() === 'PRESENT' || log.status?.toUpperCase() === 'LATE')
+        (log.status?.toUpperCase() === 'PRESENT')
     ).length;
   };
 
@@ -903,7 +903,6 @@ const AdminPage = () => {
                   >
                     <option value="Present">Present</option>
                     <option value="Absent">Absent</option>
-                    <option value="Late">Late</option>
                   </select>
                 </div>
               </div>

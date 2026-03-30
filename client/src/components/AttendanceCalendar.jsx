@@ -42,7 +42,7 @@ const AttendanceCalendar = ({ logs, holidays }) => {
         // Check attendance log
         const log = logs?.find(l => l.date === dateStr);
         if (log) {
-          status = log.status.toLowerCase(); // 'present', 'absent', 'late'
+          status = log.status.toLowerCase(); // 'present', 'absent'
         } else {
           // If in the past and no log, it's Absent? 
           // Actually, let's keep it 'none' if it's future or today
@@ -108,13 +108,11 @@ const AttendanceCalendar = ({ logs, holidays }) => {
                           d.status === 'present' ? 'rgba(16, 185, 129, 0.25)' : // Emerald Green
                           d.status === 'holiday' ? 'rgba(251, 146, 60, 0.3)' : // Light Saffron (Orange)
                           d.status === 'absent' ? 'rgba(239, 68, 68, 0.25)' : // Red
-                          d.status === 'late' ? 'rgba(245, 158, 11, 0.25)' : // Yellow/Amber
                           'rgba(255, 255, 255, 0.05)',
               color: d.isToday ? '#3b82f6' : // Blue text for today
                      d.status === 'present' ? '#10b981' :
                      d.status === 'holiday' ? '#fb923c' : // Saffron text
                      d.status === 'absent' ? '#f87171' :
-                     d.status === 'late' ? '#f59e0b' :
                      'var(--text-primary)',
               border: d.isToday ? '2px solid #3b82f6' : '1px solid transparent', // Blue for today
               cursor: d.title ? 'help' : 'default',
@@ -138,10 +136,6 @@ const AttendanceCalendar = ({ logs, holidays }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(239, 68, 68, 0.25)' }}></div>
           <span>Absent</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(245, 158, 11, 0.25)' }}></div>
-          <span>Late</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <div style={{ width: '12px', height: '12px', borderRadius: '3px', border: '1.5px solid #3b82f6' }}></div>

@@ -211,11 +211,6 @@ body {
   color: #04ba1d;
 }
 
-.status-badge.late {
-  background: rgba(245, 158, 11, 0.15);
-  color: #edad3d;
-}
-
 .status-badge.absent {
   background: rgba(194, 19, 19, 0.15);
   color: #d10c0c;
