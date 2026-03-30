@@ -101,13 +101,20 @@ const DashboardPage = () => {
       return '--';
     }
 
+    // Always prioritize 'ACTIVE' status for today if the session is open
+    if (isToday && isCheckedIn) {
+      return 'ACTIVE';
+    }
+
     if (log.totalHours === 0) {
-      if (isToday) {
-        if (log.checkIn && !log.checkOut) return 'ACTIVE';
-        return '--';
-      }
+      if (isToday) return '--';
       return log.status?.toUpperCase() || 'ABSENT';
     }
+
+    // If status is empty (pending), show '--' or 'PRESENT' based on context.
+    // For today, if it's not active and hours are < required, the server returns ''.
+    if (!log.status && isToday) return '--';
+
     return log.status?.toUpperCase() || 'PRESENT';
   };
 
@@ -341,7 +348,7 @@ const DashboardPage = () => {
         </div>
 
             {/* Attendance Logs */}
-            <AttendanceLogs logs={logs} />
+            <AttendanceLogs logs={logs} isCheckedIn={isCheckedIn} />
           </>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>

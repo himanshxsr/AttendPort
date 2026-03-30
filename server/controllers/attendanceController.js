@@ -183,10 +183,13 @@ exports.getTodayAttendance = async (req, res, next) => {
     const today = new Date().toISOString().split('T')[0];
     const attendance = await Attendance.findOne({ userId, date: today });
 
-    // FIX: If today exists and was incorrectly marked "Present" with 0 hours, clear it
-    if (attendance && attendance.status === 'Present' && (attendance.totalHours || 0) === 0) {
-      attendance.status = '';
-      await attendance.save();
+    // FIXED: If today's record has an Incorrect status ('Present' with 0h or 'Absent' incorrectly), clear it
+    if (attendance && attendance.date === today) {
+      if ((attendance.status === 'Present' && (attendance.totalHours || 0) === 0) || 
+          (attendance.status === 'Absent')) {
+        attendance.status = '';
+        await attendance.save();
+      }
     }
 
     const workSessions = attendance

@@ -1,6 +1,6 @@
 import { formatDate, formatHours } from '../utils/formatTime';
 
-const AttendanceLogs = ({ logs }) => {
+const AttendanceLogs = ({ logs, isCheckedIn }) => {
   if (!logs || logs.length === 0) {
     return (
       <div className="glass-card" style={{ padding: '3rem 2rem', textAlign: 'center' }}>
@@ -10,6 +10,8 @@ const AttendanceLogs = ({ logs }) => {
       </div>
     );
   }
+
+  const todayStr = new Date().toISOString().split('T')[0];
 
   return (
     <div className="glass-card" style={{ overflow: 'hidden' }}>
@@ -28,31 +30,32 @@ const AttendanceLogs = ({ logs }) => {
             </tr>
           </thead>
           <tbody>
-            {logs.map((log) => (
-              <tr key={log._id}>
-                <td>{formatDate(log.date)}</td>
-                <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                  {log.checkIn ? new Date(log.checkIn).toLocaleTimeString() : '—'}
-                </td>
-                <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                  {log.checkOut ? new Date(log.checkOut).toLocaleTimeString() : '—'}
-                </td>
-                <td style={{ fontWeight: 600, color: 'var(--accent-indigo)' }}>
-                  {formatHours(log.totalHours)}
-                </td>
-                <td>
-                  <span className={`status-badge ${
-                    (log.date === new Date().toISOString().split('T')[0] && log.checkIn && !log.checkOut) 
-                      ? 'active' 
-                      : (log.status?.toLowerCase() || 'none')
-                  }`}>
-                    {(log.date === new Date().toISOString().split('T')[0] && log.checkIn && !log.checkOut) 
-                      ? 'ACTIVE' 
-                      : (log.status || '--')}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {logs.map((log) => {
+              const isToday = log.date === todayStr;
+              const isActive = isToday && isCheckedIn;
+
+              return (
+                <tr key={log._id}>
+                  <td>{formatDate(log.date)}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                    {log.checkIn ? new Date(log.checkIn).toLocaleTimeString() : '—'}
+                  </td>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                    {log.checkOut ? new Date(log.checkOut).toLocaleTimeString() : '—'}
+                  </td>
+                  <td style={{ fontWeight: 600, color: 'var(--accent-indigo)' }}>
+                    {formatHours(log.totalHours)}
+                  </td>
+                  <td>
+                    <span className={`status-badge ${
+                      isActive ? 'active' : (log.status?.toLowerCase() || 'none')
+                    }`}>
+                      {isActive ? 'ACTIVE' : (log.status || '--')}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
