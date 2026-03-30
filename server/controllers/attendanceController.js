@@ -1,6 +1,29 @@
 const Attendance = require('../models/Attendance');
 const WorkSession = require('../models/WorkSession');
 
+/**
+ * Helper to calculate attendance status based on day of week and total hours.
+ */
+const calculateStatus = (dateStr, totalHours) => {
+  // Use local components for day of week calculation as stored in DB
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const dateObj = new Date(year, month - 1, day);
+  const dayOfWeek = dateObj.getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+
+  // Wednesday Rule: < 3.5h is Absent
+  if (dayOfWeek === 3) {
+    return totalHours < 3.5 ? 'Absent' : 'Present';
+  }
+
+  // Workdays (Mon, Tue, Thu, Fri) Rule: < 7.48h is Absent
+  if ([1, 2, 4, 5].includes(dayOfWeek)) {
+    return totalHours < 7.48 ? 'Absent' : 'Present';
+  }
+
+  // Weekends / Others: Always Present
+  return 'Present';
+};
+
 // Helper to cleanup stale sessions (> 24h)
 const cleanupStaleSessions = async (userId) => {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -30,19 +53,15 @@ const cleanupStaleSessions = async (userId) => {
         const totalHours = +(totalMs / 3600000).toFixed(2);
         attendance.totalHours = totalHours;
 
-        // Enforce company rules in cleanup
-        // Use a more careful date parsing for day of week
-        const [year, month, day] = attendance.date.split('-').map(Number);
-        const dateObj = new Date(year, month - 1, day);
-        const dayOfWeek = dateObj.getDay(); // 0=Sun, 1=Mon, ..., 3=Wed, 4=Thu
+        const status = calculateStatus(attendance.date, totalHours);
+        const today = new Date().toISOString().split('T')[0];
 
-        if (dayOfWeek === 3) { // Wednesday
-          attendance.status = totalHours < 3.5 ? 'Absent' : 'Present';
-        } else if ([1, 2, 4, 5].includes(dayOfWeek)) { // Mon, Tue, Thu, Fri
-          // 7h 29m (7.483h) to 8h borderline rule
-          attendance.status = totalHours < 7.48 ? 'Absent' : 'Present';
+        // If it's a past record, we apply 'Absent' if hours are insufficient.
+        // If it's today's record (via check-in cleanup), we only mark 'Present' or leave it empty ('').
+        if (attendance.date === today && status === 'Absent') {
+          attendance.status = '';
         } else {
-          attendance.status = 'Present'; // Weekends etc
+          attendance.status = status;
         }
         
         await attendance.save();
@@ -133,26 +152,14 @@ exports.checkOut = async (req, res, next) => {
     attendance.checkOut = new Date();
     attendance.totalHours = totalHours;
 
-    // Apply company rules:
-    // Mon, Tue, Thu, Fri: < 7h = Absent
-    // Wed: < 3.5h = Absent
-    const dayOfWeek = new Date(attendance.date).getUTCDay(); // 0=Sun, 1=Mon, ..., 3=Wed
-    
-    if (dayOfWeek === 3) {
-      // Wednesday
-      attendance.status = totalHours < 3.5 ? 'Absent' : 'Present';
-    } else if ([1, 2, 4, 5].includes(dayOfWeek)) {
-      // Standard working days: 8h rule
-      if (totalHours >= 8) {
-        attendance.status = 'Present';
-      } else if (totalHours >= 7.48) { // 7h 29m+
-        attendance.status = ''; // Blank until next day cleanup
-      } else {
-        attendance.status = 'Absent';
-      }
+    const status = calculateStatus(attendance.date, totalHours);
+
+    // POSTPONE ABSENT STATUS: If it's today and criteria are not met, leave it blank ('').
+    // This allows the user to check in again (up to 3 times) before the end of the day.
+    if (status === 'Absent') {
+      attendance.status = ''; 
     } else {
-      // Sat/Sun or other
-      attendance.status = 'Present';
+      attendance.status = status;
     }
 
     await attendance.save();
