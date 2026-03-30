@@ -17,8 +17,12 @@ const DashboardPage = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [holidays, setHolidays] = useState([]);
-  const [activeView, setActiveView] = useState('summary'); // 'summary' or 'calendar'
+  const [activeView, setActiveView] = useState('summary'); // 'summary', 'calendar', or 'leaves'
   const [selectedDateLog, setSelectedDateLog] = useState(null);
+  const [leaves, setLeaves] = useState([]);
+  const [leaveForm, setLeaveForm] = useState({ type: 'Sick', startDate: '', endDate: '', reason: '' });
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  const [userPayslips, setUserPayslips] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -26,14 +30,18 @@ const DashboardPage = () => {
 
   const fetchData = async () => {
     try {
-      const [todayRes, logsRes, holidayRes] = await Promise.all([
+      const [todayRes, logsRes, holidayRes, leavesRes, payslipsRes] = await Promise.all([
         API.get('/attendance/today'),
         API.get('/attendance/logs'),
         API.get('/attendance/holidays'),
+        API.get('/attendance/my-leaves'),
+        API.get('/attendance/my-payslips'),
       ]);
 
       setTodayData(todayRes.data);
       setHolidays(holidayRes.data);
+      setLeaves(leavesRes.data);
+      setUserPayslips(payslipsRes.data);
       
       // Fill gaps with Absent records from the day user joined
       const fullHistory = getCompleteHistory(user.createdAt, logsRes.data);
@@ -73,6 +81,21 @@ const DashboardPage = () => {
       console.error('Check-out failed:', err);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleApplyLeave = async (e) => {
+    e.preventDefault();
+    setLeaveLoading(true);
+    try {
+      await API.post('/attendance/apply-leave', leaveForm);
+      setLeaveForm({ type: 'Sick', startDate: '', endDate: '', reason: '' });
+      setMessage({ type: 'success', text: 'Leave application submitted successfully!' });
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to apply for leave');
+    } finally {
+      setLeaveLoading(false);
     }
   };
 
@@ -147,9 +170,9 @@ const DashboardPage = () => {
     <>
       <Navbar />
       <div style={{
-        maxWidth: '1100px',
+        maxWidth: '1200px',
         margin: '0 auto',
-        padding: '2rem 1.5rem',
+        padding: '1.5rem 1rem',
       }}>
         {/* Welcome Header */}
         <div style={{ marginBottom: '2rem' }}>
@@ -172,7 +195,7 @@ const DashboardPage = () => {
         {/* Stats Cards */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
           gap: '1rem',
           marginBottom: '2rem',
         }}>
@@ -266,19 +289,20 @@ const DashboardPage = () => {
         </div>
 
         {/* View Toggles */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+        <div className="tabs-scrollable" style={{ marginBottom: '1.5rem' }}>
           <button 
             onClick={() => setActiveView('summary')}
             className={`btn-toggle ${activeView === 'summary' ? 'active' : ''}`}
             style={{
-              padding: '0.5rem 1rem',
+              padding: '0.625rem 1.25rem',
               borderRadius: '0.75rem',
               border: 'none',
               background: activeView === 'summary' ? 'var(--accent-indigo)' : 'rgba(255,255,255,0.05)',
               color: activeView === 'summary' ? 'white' : 'var(--text-secondary)',
               cursor: 'pointer',
               fontSize: '0.85rem',
-              fontWeight: 600
+              fontWeight: 600,
+              whiteSpace: 'nowrap'
             }}
           >
             Summary & Logs
@@ -287,21 +311,56 @@ const DashboardPage = () => {
             onClick={() => setActiveView('calendar')}
             className={`btn-toggle ${activeView === 'calendar' ? 'active' : ''}`}
             style={{
-              padding: '0.5rem 1rem',
+              padding: '0.625rem 1.25rem',
               borderRadius: '0.75rem',
               border: 'none',
               background: activeView === 'calendar' ? 'var(--accent-indigo)' : 'rgba(255,255,255,0.05)',
               color: activeView === 'calendar' ? 'white' : 'var(--text-secondary)',
               cursor: 'pointer',
               fontSize: '0.85rem',
-              fontWeight: 600
+              fontWeight: 600,
+              whiteSpace: 'nowrap'
             }}
           >
             Attendance Calendar
           </button>
+          <button 
+            onClick={() => setActiveView('leaves')}
+            className={`btn-toggle ${activeView === 'leaves' ? 'active' : ''}`}
+            style={{
+              padding: '0.625rem 1.25rem',
+              borderRadius: '0.75rem',
+              border: 'none',
+              background: activeView === 'leaves' ? 'var(--accent-indigo)' : 'rgba(255,255,255,0.05)',
+              color: activeView === 'leaves' ? 'white' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Leaves
+          </button>
+          <button 
+            onClick={() => setActiveView('payslips')}
+            className={`btn-toggle ${activeView === 'payslips' ? 'active' : ''}`}
+            style={{
+              padding: '0.625rem 1.25rem',
+              borderRadius: '0.75rem',
+              border: 'none',
+              background: activeView === 'payslips' ? 'var(--accent-indigo)' : 'rgba(255,255,255,0.05)',
+              color: activeView === 'payslips' ? 'white' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Payslips
+          </button>
         </div>
 
-        {activeView === 'summary' ? (
+        {activeView === 'summary' && (
           <>
             {/* Timer & Actions Card */}
         <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
@@ -350,7 +409,9 @@ const DashboardPage = () => {
             {/* Attendance Logs */}
             <AttendanceLogs logs={logs} isCheckedIn={isCheckedIn} />
           </>
-        ) : (
+        )}
+
+        {activeView === 'calendar' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <AttendanceCalendar 
               logs={logs} 
@@ -404,6 +465,175 @@ const DashboardPage = () => {
             )}
           </div>
         )}
+
+        {activeView === 'leaves' && (
+          <div className="responsive-grid-leaves" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr)', gap: '1.5rem', alignItems: 'start' }}>
+            {/* Apply Leave Form */}
+            <div className="glass-card" style={{ padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.25rem' }}>Apply for Leave</h2>
+              <form onSubmit={handleApplyLeave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Leave Type</label>
+                  <select 
+                    className="input-field" 
+                    value={leaveForm.type}
+                    onChange={(e) => setLeaveForm({...leaveForm, type: e.target.value})}
+                    required
+                  >
+                    <option value="Sick">Sick Leave</option>
+                    <option value="Casual">Casual Leave</option>
+                    <option value="Medical">Medical Leave</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Start Date</label>
+                    <input 
+                      type="date" 
+                      className="input-field" 
+                      value={leaveForm.startDate}
+                      onChange={(e) => setLeaveForm({...leaveForm, startDate: e.target.value})}
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>End Date</label>
+                    <input 
+                      type="date" 
+                      className="input-field" 
+                      value={leaveForm.endDate}
+                      onChange={(e) => setLeaveForm({...leaveForm, endDate: e.target.value})}
+                      required 
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Reason</label>
+                  <textarea 
+                    className="input-field" 
+                    rows="3" 
+                    placeholder="Briefly explain your reason..."
+                    value={leaveForm.reason}
+                    onChange={(e) => setLeaveForm({...leaveForm, reason: e.target.value})}
+                    required
+                    style={{ resize: 'none', padding: '0.75rem' }}
+                  ></textarea>
+                </div>
+                <button type="submit" className="btn-gradient" disabled={leaveLoading} style={{ marginTop: '0.5rem' }}>
+                  {leaveLoading ? 'Submitting...' : 'Submit Application'}
+                </button>
+              </form>
+            </div>
+
+            {/* Leave History */}
+            <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Leave History</h3>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="logs-table">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Dates</th>
+                      <th>Reason</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaves.map((leave) => (
+                      <tr key={leave._id}>
+                        <td style={{ fontWeight: 600 }}>{leave.type}</td>
+                        <td style={{ fontSize: '0.8rem' }}>
+                          {leave.startDate} to {leave.endDate}
+                        </td>
+                        <td style={{ maxWidth: '200px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={leave.reason}>
+                            {leave.reason}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`status-badge ${leave.status.toLowerCase()}`}>
+                            {leave.status.toUpperCase()}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {leaves.length === 0 && (
+                      <tr>
+                        <td colSpan="4" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
+                          You haven't applied for any leaves yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeView === 'payslips' && (
+          <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>My Payslips</h3>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="logs-table">
+                <thead>
+                  <tr>
+                    <th>Month/Year</th>
+                    <th>Net Pay</th>
+                    <th>Earnings</th>
+                    <th>Deductions</th>
+                    <th style={{ textAlign: 'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {userPayslips.map((payslip) => (
+                    <tr key={payslip._id}>
+                      <td style={{ fontWeight: 600 }}>{payslip.month} {payslip.year}</td>
+                      <td style={{ fontWeight: 700, color: 'var(--accent-indigo)' }}>₹{payslip.netPay.toLocaleString()}</td>
+                      <td style={{ fontSize: '0.8rem' }}>₹{payslip.totalEarnings.toLocaleString()}</td>
+                      <td style={{ fontSize: '0.8rem', color: 'var(--accent-rose)' }}>₹{payslip.totalDeductions.toLocaleString()}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button 
+                          onClick={() => {
+                            // Import utility dynamically to keep bundle small if possible,
+                            // or use the imported function
+                            import('../utils/PayslipPDF').then(module => {
+                              module.generatePayslipPDF(user, payslip);
+                            });
+                          }}
+                          className="btn-gradient"
+                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', height: 'auto' }}
+                        >
+                          Download PDF
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {userPayslips.length === 0 && (
+                    <tr>
+                      <td colSpan="5" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
+                        No payslips have been generated for you yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <style>{`
+          @media (max-width: 900px) {
+            .responsive-grid-leaves {
+              grid-template-columns: 1fr !important;
+            }
+          }
+        `}</style>
       </div>
     </>
   );

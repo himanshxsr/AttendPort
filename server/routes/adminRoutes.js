@@ -7,26 +7,40 @@ const {
   updateUserRole,
   softDeleteUser,
   getDeletedUsers,
+  getHolidays,
   addHoliday,
   deleteHoliday,
-  getHolidays,
   markManualAttendance,
 } = require('../controllers/adminController');
+const { getAllLeaves, updateLeaveStatus } = require('../controllers/leaveController');
+const { adminGeneratePayslip, adminGetAllPayslips } = require('../controllers/payslipController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
-router.get('/all-attendance', protect, admin, getAllAttendance);
-router.get('/users', protect, admin, getAllUsers);
-router.get('/deleted-users', protect, admin, getDeletedUsers);
-router.post('/add-employee', protect, admin, addEmployee);
-router.put('/update-role/:id', protect, admin, updateUserRole);
-router.delete('/user/:id', protect, admin, softDeleteUser);
+// Middleware to ensure user is admin
+router.use(protect);
+router.use(admin);
+
+router.get('/all-attendance', getAllAttendance);
+router.get('/users', getAllUsers);
+router.get('/deleted-users', getDeletedUsers);
+router.post('/add-employee', addEmployee);
+router.put('/update-role/:id', updateUserRole);
+router.delete('/user/:id', softDeleteUser);
 
 // Holiday routes
-router.get('/holidays', protect, admin, getHolidays);
-router.post('/holiday', protect, admin, addHoliday);
-router.delete('/holiday/:id', protect, admin, deleteHoliday);
+router.get('/holidays', getHolidays);
+router.post('/holiday', addHoliday);
+router.delete('/holiday/:id', deleteHoliday);
 
 // Manual attendance
-router.post('/manual-attendance', protect, admin, markManualAttendance);
+router.post('/manual-attendance', markManualAttendance);
+
+// Leave Management (Admin)
+router.get('/all-leaves', getAllLeaves);
+router.put('/update-leave/:id', updateLeaveStatus);
+
+// Payroll (Admin)
+router.post('/generate-payslip', adminGeneratePayslip);
+router.get('/all-payslips', adminGetAllPayslips);
 
 module.exports = router;

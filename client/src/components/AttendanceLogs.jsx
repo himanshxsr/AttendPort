@@ -18,7 +18,7 @@ const AttendanceLogs = ({ logs, isCheckedIn }) => {
       <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Attendance History</h3>
       </div>
-      <div style={{ overflowX: 'auto' }}>
+      <div className="table-responsive">
         <table className="logs-table">
           <thead>
             <tr>

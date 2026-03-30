@@ -21,6 +21,17 @@ const AdminPage = () => {
   const [holidays, setHolidays] = useState([]);
   const [newHoliday, setNewHoliday] = useState({ date: '', name: '' });
   const [manualEntry, setManualEntry] = useState({ userId: '', date: '', status: 'Present' });
+  const [leaves, setLeaves] = useState([]);
+  const [leaveActionLoading, setLeaveActionLoading] = useState(false);
+  const [payslips, setPayslips] = useState([]);
+  const [payrollLoading, setPayrollLoading] = useState(false);
+  const [payrollForm, setPayrollForm] = useState({
+    userId: '',
+    month: new Date().toLocaleString('default', { month: 'long' }),
+    year: new Date().getFullYear(),
+    earnings: [{ label: 'Basic Salary', amount: 0 }],
+    deductions: [{ label: 'Provident Fund', amount: 0 }]
+  });
   
   // Modal states for user-specific calendar
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
@@ -33,16 +44,20 @@ const AdminPage = () => {
 
   const fetchData = async () => {
     try {
-      const [attendanceRes, usersRes, deletedUsersRes, holidayRes] = await Promise.all([
+      const [attendanceRes, usersRes, deletedUsersRes, holidayRes, leavesRes, payslipsRes] = await Promise.all([
         API.get('/admin/all-attendance'),
         API.get('/admin/users'),
         API.get('/admin/deleted-users'),
         API.get('/admin/holidays'),
+        API.get('/admin/all-leaves'),
+        API.get('/admin/all-payslips'),
       ]);
       setAttendance(attendanceRes.data);
       setUsers(usersRes.data);
       setDeletedUsers(deletedUsersRes.data);
       setHolidays(holidayRes.data);
+      setLeaves(leavesRes.data);
+      setPayslips(payslipsRes.data);
     } catch (err) {
       console.error('Failed to fetch admin data:', err);
     } finally {
@@ -143,6 +158,53 @@ const AdminPage = () => {
     } finally {
       setFormLoading(false);
     }
+  };
+
+  const handleUpdateLeaveStatus = async (leaveId, status) => {
+    setLeaveActionLoading(true);
+    try {
+      await API.put(`/admin/update-leave/${leaveId}`, { status });
+      setMessage({ type: 'success', text: `Leave request ${status.toLowerCase()}!` });
+      fetchData();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to update leave' });
+    } finally {
+      setLeaveActionLoading(false);
+    }
+  };
+
+  const handleGeneratePayslip = async (e) => {
+    e.preventDefault();
+    if (!payrollForm.userId) {
+      setMessage({ type: 'error', text: 'Please select an employee' });
+      return;
+    }
+    setPayrollLoading(true);
+    try {
+      await API.post('/admin/generate-payslip', payrollForm);
+      setMessage({ type: 'success', text: 'Payslip generated successfully!' });
+      fetchData();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to generate payslip' });
+    } finally {
+      setPayrollLoading(false);
+    }
+  };
+
+  const addPayrollRow = (type) => {
+    const newItems = [...payrollForm[type], { label: '', amount: 0 }];
+    setPayrollForm({ ...payrollForm, [type]: newItems });
+  };
+
+  const removePayrollRow = (type, index) => {
+    const newItems = payrollForm[type].filter((_, i) => i !== index);
+    setPayrollForm({ ...payrollForm, [type]: newItems });
+  };
+
+  const updatePayrollRow = (type, index, field, value) => {
+    const newItems = [...payrollForm[type]];
+    newItems[index][field] = value;
+    setPayrollForm({ ...payrollForm, [type]: newItems });
   };
 
   const getFilteredAttendance = () => {
@@ -260,9 +322,9 @@ const AdminPage = () => {
     <>
       <Navbar />
       <div style={{
-        maxWidth: '1100px',
+        maxWidth: '1200px',
         margin: '0 auto',
-        padding: '2rem 1.5rem',
+        padding: '1.5rem 1rem',
       }}>
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>
@@ -276,7 +338,7 @@ const AdminPage = () => {
         {/* Summary Cards */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
           gap: '1rem',
           marginBottom: '2rem',
         }}>
@@ -338,9 +400,9 @@ const AdminPage = () => {
           <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem' }}>
             Add New Employee
           </h2>
-          <form onSubmit={handleAddEmployee} style={{
+          <form onSubmit={handleAddEmployee} className="responsive-admin-form" style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
             gap: '1rem',
             alignItems: 'end',
           }}>
@@ -408,14 +470,11 @@ const AdminPage = () => {
         {/* Tab Buttons and Filters */}
         <div style={{
           display: 'flex',
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '1rem',
+          flexDirection: 'column',
+          gap: '1.5rem',
           marginBottom: '1.5rem',
         }}>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="tabs-scrollable">
             <button
               onClick={() => setActiveTab('attendance')}
               style={{
@@ -524,9 +583,45 @@ const AdminPage = () => {
             >
               Manual Entry
             </button>
+            <button
+              onClick={() => setActiveTab('leaves')}
+              style={{
+                padding: '0.625rem 1.25rem',
+                borderRadius: '0.75rem',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: activeTab === 'leaves'
+                  ? 'linear-gradient(135deg, var(--accent-indigo), var(--accent-violet))'
+                  : 'rgba(255,255,255,0.05)',
+                color: activeTab === 'leaves' ? 'white' : 'var(--text-secondary)',
+              }}
+            >
+              Leaves
+            </button>
+            <button
+              onClick={() => setActiveTab('payroll')}
+              style={{
+                padding: '0.625rem 1.25rem',
+                borderRadius: '0.75rem',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: activeTab === 'payroll'
+                  ? 'linear-gradient(135deg, var(--accent-indigo), var(--accent-violet))'
+                  : 'rgba(255,255,255,0.05)',
+                color: activeTab === 'payroll' ? 'white' : 'var(--text-secondary)',
+              }}
+            >
+              Payroll
+            </button>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem', flexGrow: 1, maxWidth: '600px', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', width: '100%', justifyContent: 'flex-start' }}>
             <div style={{ position: 'relative', width: '100%', maxWidth: '250px' }}>
               <Search
                 size={16}
@@ -556,7 +651,7 @@ const AdminPage = () => {
         {/* Attendance Tab */}
         {activeTab === 'attendance' && (
           <div className="glass-card" style={{ overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="table-responsive">
               <table className="logs-table">
                 <thead>
                   <tr>
@@ -612,7 +707,7 @@ const AdminPage = () => {
         {/* Users Tab */}
         {activeTab === 'users' && (
           <div className="glass-card" style={{ overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="table-responsive">
               <table className="logs-table">
                 <thead>
                   <tr>
@@ -1037,6 +1132,293 @@ const AdminPage = () => {
             </div>
           </div>
         )}
+
+        {/* Leaves Tab */}
+        {activeTab === 'leaves' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            {/* Pending Requests Section */}
+            <div className="glass-card" style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-subtle)', background: 'rgba(251, 191, 36, 0.05)' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#fbbf24' }}>Pending Requests</h3>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="logs-table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Type</th>
+                      <th>Dates</th>
+                      <th>Reason</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaves.filter(l => l.status === 'Pending').map((leave) => (
+                      <tr key={leave._id}>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{leave.userId?.name}</div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{leave.userId?.email}</div>
+                        </td>
+                        <td>{leave.type}</td>
+                        <td style={{ fontSize: '0.8rem' }}>{leave.startDate} to {leave.endDate}</td>
+                        <td style={{ maxWidth: '300px', fontSize: '0.8rem' }} title={leave.reason}>{leave.reason}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                            <button
+                              onClick={() => handleUpdateLeaveStatus(leave._id, 'Approved')}
+                              className="btn-gradient"
+                              style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', height: 'auto' }}
+                              disabled={leaveActionLoading}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleUpdateLeaveStatus(leave._id, 'Rejected')}
+                              style={{ 
+                                padding: '0.4rem 0.8rem', fontSize: '0.75rem', borderRadius: '0.5rem',
+                                border: '1px solid rgba(244, 63, 94, 0.3)', background: 'rgba(244, 63, 94, 0.1)', color: 'var(--accent-rose)', cursor: 'pointer'
+                              }}
+                              disabled={leaveActionLoading}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {leaves.filter(l => l.status === 'Pending').length === 0 && (
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No pending requests.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Leave History Section */}
+            <div className="glass-card" style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Leave History</h3>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="logs-table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Type</th>
+                      <th>Dates</th>
+                      <th>Status</th>
+                      <th>Processed At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaves.filter(l => l.status !== 'Pending').map((leave) => (
+                      <tr key={leave._id}>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{leave.userId?.name}</div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{leave.userId?.email}</div>
+                        </td>
+                        <td>{leave.type}</td>
+                        <td style={{ fontSize: '0.8rem' }}>{leave.startDate} to {leave.endDate}</td>
+                        <td>
+                          <span className={`status-badge ${leave.status.toLowerCase()}`}>
+                            {leave.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                          {leave.processedAt ? formatDate(leave.processedAt) : '--'}
+                        </td>
+                      </tr>
+                    ))}
+                    {leaves.filter(l => l.status !== 'Pending').length === 0 && (
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No history records.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Payroll Tab */}
+        {activeTab === 'payroll' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(400px, 1fr) 1fr', gap: '1.5rem', alignItems: 'start' }}>
+            {/* Generate Payslip Form */}
+            <div className="glass-card" style={{ padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem' }}>Generate Payslip</h2>
+              <form onSubmit={handleGeneratePayslip}>
+                {/* Employee Selection */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Employee</label>
+                    <select 
+                      className="input-field" 
+                      value={payrollForm.userId}
+                      onChange={(e) => setPayrollForm({...payrollForm, userId: e.target.value})}
+                      required
+                      style={{ padding: '0.5rem' }}
+                    >
+                      <option value="">Select User</option>
+                      {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Month</label>
+                    <select 
+                      className="input-field" 
+                      value={payrollForm.month}
+                      onChange={(e) => setPayrollForm({...payrollForm, month: e.target.value})}
+                      required
+                      style={{ padding: '0.5rem' }}
+                    >
+                      {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Year</label>
+                    <input 
+                      type="number" 
+                      className="input-field" 
+                      value={payrollForm.year}
+                      onChange={(e) => setPayrollForm({...payrollForm, year: e.target.value})}
+                      required 
+                    />
+                  </div>
+                </div>
+
+                {/* Earnings */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <h3 style={{ fontSize: '0.9rem', fontWeight: 600 }}>Earnings</h3>
+                    <button type="button" onClick={() => addPayrollRow('earnings')} style={{ fontSize: '0.75rem', color: 'var(--accent-indigo)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>+ Add Earning</button>
+                  </div>
+                  {payrollForm.earnings.map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                      <input 
+                        className="input-field" 
+                        placeholder="Label" 
+                        value={item.label}
+                        onChange={(e) => updatePayrollRow('earnings', idx, 'label', e.target.value)}
+                        required
+                      />
+                      <input 
+                        type="number"
+                        className="input-field" 
+                        style={{ width: '120px' }}
+                        placeholder="Amount" 
+                        value={item.amount}
+                        onChange={(e) => updatePayrollRow('earnings', idx, 'amount', e.target.value)}
+                        required
+                      />
+                      {idx > 0 && (
+                        <button type="button" onClick={() => removePayrollRow('earnings', idx)} style={{ color: 'var(--accent-rose)', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Deductions */}
+                <div style={{ marginBottom: '2rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <h3 style={{ fontSize: '0.9rem', fontWeight: 600 }}>Deductions</h3>
+                    <button type="button" onClick={() => addPayrollRow('deductions')} style={{ fontSize: '0.75rem', color: 'var(--accent-indigo)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>+ Add Deduction</button>
+                  </div>
+                  {payrollForm.deductions.map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                      <input 
+                        className="input-field" 
+                        placeholder="Label" 
+                        value={item.label}
+                        onChange={(e) => updatePayrollRow('deductions', idx, 'label', e.target.value)}
+                        required
+                      />
+                      <input 
+                        type="number"
+                        className="input-field" 
+                        style={{ width: '120px' }}
+                        placeholder="Amount" 
+                        value={item.amount}
+                        onChange={(e) => updatePayrollRow('deductions', idx, 'amount', e.target.value)}
+                        required
+                      />
+                      {idx > 0 && (
+                        <button type="button" onClick={() => removePayrollRow('deductions', idx)} style={{ color: 'var(--accent-rose)', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ 
+                  background: 'rgba(255,255,255,0.03)', 
+                  padding: '1rem', 
+                  borderRadius: '0.75rem', 
+                  marginBottom: '1.5rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Estimated Net Pay:</span>
+                  <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--accent-indigo)' }}>
+                    ₹{(payrollForm.earnings.reduce((a, b) => a + Number(b.amount), 0) - payrollForm.deductions.reduce((a, b) => a + Number(b.amount), 0)).toLocaleString()}
+                  </span>
+                </div>
+
+                <button type="submit" className="btn-gradient" disabled={payrollLoading}>
+                  {payrollLoading ? 'Generating...' : 'Generate Payslip'}
+                </button>
+              </form>
+            </div>
+
+            {/* Payslip History Section */}
+            <div className="glass-card" style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Generation History</h3>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="logs-table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Period</th>
+                      <th>Net Pay</th>
+                      <th>Generated At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payslips.map((p) => (
+                      <tr key={p._id}>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{p.userId?.name}</div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.userId?.email}</div>
+                        </td>
+                        <td>{p.month} {p.year}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--accent-indigo)' }}>₹{p.netPay.toLocaleString()}</td>
+                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{formatDate(p.generatedAt)}</td>
+                      </tr>
+                    ))}
+                    {payslips.length === 0 && (
+                      <tr>
+                        <td colSpan="4" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>No payslips generated yet.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+        <style>{`
+          @media (max-width: 768px) {
+            .responsive-admin-form {
+              grid-template-columns: 1fr !important;
+            }
+          }
+        `}</style>
       </div>
     </>
   );
