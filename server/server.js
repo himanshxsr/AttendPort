@@ -63,3 +63,22 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
+
+// Self-pinger to keep the server awake on Render (Free Tier)
+const https = require('https');
+const SERVER_URL = process.env.SERVER_URL;
+
+if (SERVER_URL && process.env.NODE_ENV === 'production') {
+  console.log(`🚀 Self-pinger initialized for: ${SERVER_URL}`);
+  setInterval(() => {
+    https.get(`${SERVER_URL}/ping`, (res) => {
+      if (res.statusCode === 200) {
+        console.log(`Pinged server at ${new Date().toISOString()}: Success (200)`);
+      } else {
+        console.error(`Pinged server but got unexpected status: ${res.statusCode}`);
+      }
+    }).on('error', (err) => {
+      console.error('Ping failed:', err.message);
+    });
+  }, 600000); // 10 minutes interval
+}
