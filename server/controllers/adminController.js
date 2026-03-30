@@ -1,6 +1,8 @@
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 
+const Holiday = require('../models/Holiday');
+
 // @desc    Get all attendance logs (Admin)
 // @route   GET /api/admin/all-attendance
 // @access  Private/Admin
@@ -121,6 +123,84 @@ exports.getDeletedUsers = async (req, res, next) => {
       .select('-password')
       .sort({ deletedAt: -1 });
     res.json(users);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// --- Holiday Management ---
+
+// @desc    Get all holidays
+// @route   GET /api/admin/holidays
+// @access  Private/Admin
+exports.getHolidays = async (req, res, next) => {
+  try {
+    const holidays = await Holiday.find({}).sort({ date: 1 });
+    res.json(holidays);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Add a holiday
+// @route   POST /api/admin/holiday
+// @access  Private/Admin
+exports.addHoliday = async (req, res, next) => {
+  const { date, name } = req.body;
+  try {
+    const holiday = await Holiday.create({
+      date,
+      name,
+      createdBy: req.user._id,
+    });
+    res.status(201).json(holiday);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'A holiday already exists for this date' });
+    }
+    next(error);
+  }
+};
+
+// @desc    Delete a holiday
+// @route   DELETE /api/admin/holiday/:id
+// @access  Private/Admin
+exports.deleteHoliday = async (req, res, next) => {
+  try {
+    const holiday = await Holiday.findByIdAndDelete(req.params.id);
+    if (!holiday) {
+      return res.status(404).json({ message: 'Holiday not found' });
+    }
+    res.json({ message: 'Holiday deleted' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// --- Manual Attendance ---
+
+// @desc    Mark user as present manually (Admin)
+// @route   POST /api/admin/manual-attendance
+// @access  Private/Admin
+exports.markManualAttendance = async (req, res, next) => {
+  const { userId, date, status } = req.body;
+  try {
+    let attendance = await Attendance.findOne({ userId, date });
+    if (attendance) {
+      attendance.status = status || 'Present';
+      attendance.totalHours = status === 'Present' ? 9 : 0; // Default to full day if present
+      await attendance.save();
+    } else {
+      attendance = await Attendance.create({
+        userId,
+        date,
+        status: status || 'Present',
+        totalHours: status === 'Present' ? 9 : 0,
+        checkIn: new Date(`${date}T09:00:00`), // Dummy check-in
+        checkOut: new Date(`${date}T18:00:00`), // Dummy check-out
+      });
+    }
+    res.json(attendance);
   } catch (error) {
     next(error);
   }

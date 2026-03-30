@@ -4,6 +4,7 @@ import API from '../api/axios';
 import Navbar from '../components/Navbar';
 import Timer from '../components/Timer';
 import AttendanceLogs from '../components/AttendanceLogs';
+import AttendanceCalendar from '../components/AttendanceCalendar';
 import { formatHours, getCompleteHistory } from '../utils/formatTime';
 import { Clock, CalendarDays, TrendingUp, CheckCircle } from 'lucide-react';
 
@@ -15,6 +16,8 @@ const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [holidays, setHolidays] = useState([]);
+  const [activeView, setActiveView] = useState('summary'); // 'summary' or 'calendar'
 
   useEffect(() => {
     fetchData();
@@ -22,12 +25,14 @@ const DashboardPage = () => {
 
   const fetchData = async () => {
     try {
-      const [todayRes, logsRes] = await Promise.all([
+      const [todayRes, logsRes, holidayRes] = await Promise.all([
         API.get('/attendance/today'),
         API.get('/attendance/logs'),
+        API.get('/attendance/holidays'),
       ]);
 
       setTodayData(todayRes.data);
+      setHolidays(holidayRes.data);
       
       // Fill gaps with Absent records from the day user joined
       const fullHistory = getCompleteHistory(user.createdAt, logsRes.data);
@@ -222,7 +227,45 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* Timer & Actions Card */}
+        {/* View Toggles */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+          <button 
+            onClick={() => setActiveView('summary')}
+            className={`btn-toggle ${activeView === 'summary' ? 'active' : ''}`}
+            style={{
+              padding: '0.5rem 1rem',
+              borderRadius: '0.75rem',
+              border: 'none',
+              background: activeView === 'summary' ? 'var(--accent-indigo)' : 'rgba(255,255,255,0.05)',
+              color: activeView === 'summary' ? 'white' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: 600
+            }}
+          >
+            Summary & Logs
+          </button>
+          <button 
+            onClick={() => setActiveView('calendar')}
+            className={`btn-toggle ${activeView === 'calendar' ? 'active' : ''}`}
+            style={{
+              padding: '0.5rem 1rem',
+              borderRadius: '0.75rem',
+              border: 'none',
+              background: activeView === 'calendar' ? 'var(--accent-indigo)' : 'rgba(255,255,255,0.05)',
+              color: activeView === 'calendar' ? 'white' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: 600
+            }}
+          >
+            Attendance Calendar
+          </button>
+        </div>
+
+        {activeView === 'summary' ? (
+          <>
+            {/* Timer & Actions Card */}
         <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
           <Timer checkInTime={timerStartTime} isCheckedIn={isCheckedIn} />
 
@@ -266,8 +309,12 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* Attendance Logs */}
-        <AttendanceLogs logs={logs} />
+            {/* Attendance Logs */}
+            <AttendanceLogs logs={logs} />
+          </>
+        ) : (
+          <AttendanceCalendar logs={logs} holidays={holidays} />
+        )}
       </div>
     </>
   );

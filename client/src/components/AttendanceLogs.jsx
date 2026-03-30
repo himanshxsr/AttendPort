@@ -41,8 +41,14 @@ const AttendanceLogs = ({ logs }) => {
                   {formatHours(log.totalHours)}
                 </td>
                 <td>
-                  <span className={`status-badge ${log.status?.toLowerCase()}`}>
-                    {log.status}
+                  <span className={`status-badge ${
+                    (log.date === new Date().toISOString().split('T')[0] && log.checkIn && !log.checkOut) 
+                      ? 'active' 
+                      : (log.status?.toLowerCase() || 'none')
+                  }`}>
+                    {(log.date === new Date().toISOString().split('T')[0] && log.checkIn && !log.checkOut) 
+                      ? 'ACTIVE' 
+                      : (log.status || '--')}
                   </span>
                 </td>
               </tr>

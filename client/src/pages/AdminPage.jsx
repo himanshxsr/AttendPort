@@ -17,6 +17,9 @@ const AdminPage = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState('');
+  const [holidays, setHolidays] = useState([]);
+  const [newHoliday, setNewHoliday] = useState({ date: '', name: '' });
+  const [manualEntry, setManualEntry] = useState({ userId: '', date: '', status: 'Present' });
 
   useEffect(() => {
     fetchData();
@@ -24,14 +27,16 @@ const AdminPage = () => {
 
   const fetchData = async () => {
     try {
-      const [attendanceRes, usersRes, deletedUsersRes] = await Promise.all([
+      const [attendanceRes, usersRes, deletedUsersRes, holidayRes] = await Promise.all([
         API.get('/admin/all-attendance'),
         API.get('/admin/users'),
         API.get('/admin/deleted-users'),
+        API.get('/admin/holidays'),
       ]);
       setAttendance(attendanceRes.data);
       setUsers(usersRes.data);
       setDeletedUsers(deletedUsersRes.data);
+      setHolidays(holidayRes.data);
     } catch (err) {
       console.error('Failed to fetch admin data:', err);
     } finally {
@@ -91,6 +96,46 @@ const AdminPage = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddHoliday = async (e) => {
+    e.preventDefault();
+    setFormLoading(true);
+    try {
+      await API.post('/admin/holiday', newHoliday);
+      setNewHoliday({ date: '', name: '' });
+      setMessage({ type: 'success', text: 'Holiday added successfully!' });
+      fetchData();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to add holiday' });
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleDeleteHoliday = async (holidayId) => {
+    if (!window.confirm('Delete this holiday?')) return;
+    try {
+      await API.delete(`/admin/holiday/${holidayId}`);
+      fetchData();
+    } catch (err) {
+      console.error('Failed to delete holiday:', err);
+    }
+  };
+
+  const handleManualAttendance = async (e) => {
+    e.preventDefault();
+    setFormLoading(true);
+    try {
+      await API.post('/admin/manual-attendance', manualEntry);
+      setMessage({ type: 'success', text: 'Attendance updated successfully!' });
+      setManualEntry({ userId: '', date: '', status: 'Present' });
+      fetchData();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to update attendance' });
+    } finally {
+      setFormLoading(false);
     }
   };
 
@@ -429,6 +474,42 @@ const AdminPage = () => {
             >
               Work Time
             </button>
+            <button
+              onClick={() => setActiveTab('holidays')}
+              style={{
+                padding: '0.625rem 1.25rem',
+                borderRadius: '0.75rem',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: activeTab === 'holidays'
+                  ? 'linear-gradient(135deg, var(--accent-indigo), var(--accent-violet))'
+                  : 'rgba(255,255,255,0.05)',
+                color: activeTab === 'holidays' ? 'white' : 'var(--text-secondary)',
+              }}
+            >
+              Holidays
+            </button>
+            <button
+              onClick={() => setActiveTab('manual')}
+              style={{
+                padding: '0.625rem 1.25rem',
+                borderRadius: '0.75rem',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: activeTab === 'manual'
+                  ? 'linear-gradient(135deg, var(--accent-indigo), var(--accent-violet))'
+                  : 'rgba(255,255,255,0.05)',
+                color: activeTab === 'manual' ? 'white' : 'var(--text-secondary)',
+              }}
+            >
+              Manual Entry
+            </button>
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', flexGrow: 1, maxWidth: '600px', justifyContent: 'flex-end' }}>
@@ -691,6 +772,120 @@ const AdminPage = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* Holidays Tab */}
+        {activeTab === 'holidays' && (
+          <div className="glass-card" style={{ padding: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem' }}>Holiday Management</h2>
+            <form onSubmit={handleAddHoliday} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', marginBottom: '2rem', alignItems: 'end' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Date</label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={newHoliday.date}
+                  onChange={(e) => setNewHoliday({ ...newHoliday, date: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Holiday Name</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. New Year"
+                  value={newHoliday.name}
+                  onChange={(e) => setNewHoliday({ ...newHoliday, name: e.target.value })}
+                  required
+                />
+              </div>
+              <button type="submit" className="btn-gradient" style={{ height: '42px', padding: '0 1.5rem' }} disabled={formLoading}>
+                Add Holiday
+              </button>
+            </form>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="logs-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Holiday</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {holidays.map((h) => (
+                    <tr key={h._id}>
+                      <td>{formatDate(h.date)}</td>
+                      <td style={{ fontWeight: 600 }}>{h.name}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button onClick={() => handleDeleteHoliday(h._id)} className="btn-icon" style={{ color: '#fb7185' }}>
+                          <Trash2 size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Manual Entry Tab */}
+        {activeTab === 'manual' && (
+          <div className="glass-card" style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem' }}>Manual Attendance Entry</h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+              Use this to mark a user present for a date they missed or forgot to check in.
+            </p>
+            <form onSubmit={handleManualAttendance} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Select Employee</label>
+                <select
+                  className="input-field"
+                  value={manualEntry.userId}
+                  onChange={(e) => setManualEntry({ ...manualEntry, userId: e.target.value })}
+                  required
+                >
+                  <option value="">-- Choose User --</option>
+                  {users.map(u => <option key={u._id} value={u._id}>{u.name} ({u.email})</option>)}
+                </select>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Date</label>
+                  <input
+                    type="date"
+                    className="input-field"
+                    value={manualEntry.date}
+                    onChange={(e) => setManualEntry({ ...manualEntry, date: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Status</label>
+                  <select
+                    className="input-field"
+                    value={manualEntry.status}
+                    onChange={(e) => setManualEntry({ ...manualEntry, status: e.target.value })}
+                  >
+                    <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
+                    <option value="Late">Late</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" className="btn-gradient" style={{ padding: '0.8rem' }} disabled={formLoading}>
+                {formLoading ? 'Updating...' : 'Update Attendance'}
+              </button>
+            </form>
+            {message.text && (
+              <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.9rem', color: message.type === 'success' ? 'var(--accent-emerald)' : '#fb7185' }}>
+                {message.text}
+              </div>
+            )}
           </div>
         )}
       </div>

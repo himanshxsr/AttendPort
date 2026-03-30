@@ -1,0 +1,143 @@
+import { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+const AttendanceCalendar = ({ logs, holidays }) => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [days, setDays] = useState([]);
+
+  useEffect(() => {
+    generateCalendar();
+  }, [currentDate, logs, holidays]);
+
+  const generateCalendar = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    const firstDay = new Date(year, month, 1).getDay(); // 0 (Sun) to 6 (Sat)
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const calendarDays = [];
+
+    // Fill leading empty days
+    for (let i = 0; i < firstDay; i++) {
+      calendarDays.push({ type: 'empty' });
+    }
+
+    // Fill actual days
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const dayOfWeek = new Date(year, month, d).getDay();
+      
+      let status = 'none';
+      let title = '';
+
+      // Check for Holiday (including Sat/Sun)
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const holiday = holidays?.find(h => h.date === dateStr);
+
+      if (isWeekend || holiday) {
+        status = 'holiday';
+        title = holiday ? holiday.name : isWeekend ? 'Weekend' : '';
+      } else {
+        // Check attendance log
+        const log = logs?.find(l => l.date === dateStr);
+        if (log) {
+          status = log.status.toLowerCase(); // 'present', 'absent', 'late'
+        } else {
+          // If in the past and no log, it's Absent? 
+          // Actually, let's keep it 'none' if it's future or today
+          const dDate = new Date(year, month, d);
+          const today = new Date();
+          today.setHours(0,0,0,0);
+          if (dDate < today) {
+            status = 'absent';
+          }
+        }
+      }
+
+      calendarDays.push({
+        day: d,
+        date: dateStr,
+        status,
+        title,
+        isToday: dateStr === new Date().toISOString().split('T')[0]
+      });
+    }
+
+    setDays(calendarDays);
+  };
+
+  const nextMonth = () => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)));
+  const prevMonth = () => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)));
+
+  const monthName = currentDate.toLocaleString('default', { month: 'long' });
+
+  return (
+    <div className="glass-card" style={{ padding: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>{monthName} {currentDate.getFullYear()}</h3>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button onClick={prevMonth} className="btn-icon"><ChevronLeft size={20} /></button>
+          <button onClick={nextMonth} className="btn-icon"><ChevronRight size={20} /></button>
+        </div>
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        gap: '0.5rem',
+        textAlign: 'center',
+      }}>
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+          <div key={d} style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', paddingBottom: '0.5rem' }}>{d}</div>
+        ))}
+        
+        {days.map((d, index) => (
+          <div
+            key={index}
+            style={{
+              height: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '0.5rem',
+              fontSize: '0.9rem',
+              fontWeight: 500,
+              background: d.type === 'empty' ? 'transparent' : 
+                          d.status === 'present' ? 'rgba(16, 185, 129, 0.2)' :
+                          d.status === 'holiday' ? 'rgba(239, 68, 68, 0.2)' :
+                          d.status === 'absent' ? 'rgba(239, 68, 68, 0.1)' :
+                          'rgba(255, 255, 255, 0.05)',
+              color: d.status === 'present' ? 'var(--accent-emerald)' :
+                     d.status === 'holiday' ? '#f87171' :
+                     d.status === 'absent' ? '#f87171' :
+                     'var(--text-primary)',
+              border: d.isToday ? '2px solid var(--accent-indigo)' : '1px solid transparent',
+              cursor: d.title ? 'help' : 'default',
+            }}
+            title={d.title}
+          >
+            {d.day}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(16, 185, 129, 0.2)' }}></div>
+          <span>Present</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(239, 68, 68, 0.2)' }}></div>
+          <span>Holiday/Weekend</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(239, 68, 68, 0.1)' }}></div>
+          <span>Absent</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AttendanceCalendar;
