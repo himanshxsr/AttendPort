@@ -8,15 +8,13 @@ export const generatePayslipPDF = (user, payslip) => {
   // 1. Header
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('Cryenx Labs', pageWidth - 20, 20, { align: 'right' });
+  doc.text('Elisium Space', pageWidth - 20, 20, { align: 'right' });
   
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   const address = [
-    '(Appease IT Solutions Pvt. Ltd), Wework Prestige Cube,',
-    'Site No. 26, Hosur Road, Adugodi, Koramangala,',
-    'Bangalore, Karnataka, Bengaluru,',
-    'Karnataka- 560030'
+    '1/D Arjun Nagar, Safdarjung Enclave,',
+    'New Delhi, Delhi- 110029'
   ];
   address.forEach((line, index) => {
     doc.text(line, pageWidth - 20, 26 + (index * 4), { align: 'right' });
