@@ -61,7 +61,18 @@ exports.login = async (req, res, next) => {
 
     const user = await User.findOne({ email });
 
-    if (user && (await user.comparePassword(password))) {
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    // Check if user has a password (might be a Google-only user)
+    if (!user.password) {
+      return res.status(401).json({ message: 'This account uses Google Sign-In. Please sign in with Google.' });
+    }
+
+    const isMatch = await user.comparePassword(password);
+
+    if (isMatch) {
       if (user.isDeleted === true) {
         return res.status(401).json({ message: 'Your account has been deleted. Please contact your admin.' });
       }
