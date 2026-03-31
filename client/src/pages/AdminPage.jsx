@@ -29,8 +29,12 @@ const AdminPage = () => {
     userId: '',
     month: new Date().toLocaleString('default', { month: 'long' }),
     year: new Date().getFullYear(),
-    earnings: [{ label: 'Basic Salary', amount: 0 }],
-    deductions: [{ label: 'Provident Fund', amount: 0 }]
+    earnings: [
+      { label: 'Basic Salary', rate: 0, monthly: 0, arrear: 0, total: 0 }
+    ],
+    deductions: [
+      { label: 'Provident Fund', total: 0 }
+    ]
   });
   
   // Modal states for user-specific calendar
@@ -203,11 +207,26 @@ const AdminPage = () => {
 
   const updatePayrollRow = (type, index, field, value) => {
     const newItems = [...payrollForm[type]];
-    newItems[index][field] = value;
+    const numValue = Number(value) || 0;
     
-    // Automatically update the total if it's earnings
+    newItems[index][field] = numValue;
+    
+    // For earnings, if we update amount/total, we set it as the total for the model
     if (type === 'earnings') {
-      newItems[index].total = (Number(newItems[index].monthly) || 0) + (Number(newItems[index].arrear) || 0);
+      // In this simple UI, we treat the amount as the 'total' for that component
+      if (field === 'amount' || field === 'total') {
+        newItems[index].total = numValue;
+        newItems[index].monthly = numValue; // Default monthly to total if no split is provided
+      }
+    } else if (type === 'deductions') {
+      if (field === 'amount' || field === 'total') {
+        newItems[index].total = numValue;
+      }
+    }
+    
+    // Also handle label updates
+    if (field === 'label') {
+      newItems[index].label = value;
     }
     
     setPayrollForm({ ...payrollForm, [type]: newItems });
@@ -1316,8 +1335,8 @@ const AdminPage = () => {
                         className="input-field" 
                         style={{ width: '120px' }}
                         placeholder="Amount" 
-                        value={item.amount}
-                        onChange={(e) => updatePayrollRow('earnings', idx, 'amount', e.target.value)}
+                        value={item.total}
+                        onChange={(e) => updatePayrollRow('earnings', idx, 'total', e.target.value)}
                         required
                       />
                       {idx > 0 && (
@@ -1347,8 +1366,8 @@ const AdminPage = () => {
                         className="input-field" 
                         style={{ width: '120px' }}
                         placeholder="Amount" 
-                        value={item.amount}
-                        onChange={(e) => updatePayrollRow('deductions', idx, 'amount', e.target.value)}
+                        value={item.total}
+                        onChange={(e) => updatePayrollRow('deductions', idx, 'total', e.target.value)}
                         required
                       />
                       {idx > 0 && (
@@ -1369,7 +1388,7 @@ const AdminPage = () => {
                 }}>
                   <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Estimated Net Pay:</span>
                   <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--accent-indigo)' }}>
-                    ₹{(payrollForm.earnings.reduce((a, b) => a + Number(b.amount), 0) - payrollForm.deductions.reduce((a, b) => a + Number(b.amount), 0)).toLocaleString()}
+                    ₹{(payrollForm.earnings.reduce((a, b) => a + (Number(b.total) || 0), 0) - payrollForm.deductions.reduce((a, b) => a + (Number(b.total) || 0), 0)).toLocaleString()}
                   </span>
                 </div>
 
@@ -1403,7 +1422,7 @@ const AdminPage = () => {
                         </td>
                         <td>{p.month} {p.year}</td>
                         <td style={{ fontWeight: 700, color: 'var(--accent-indigo)' }}>₹{p.netPay.toLocaleString()}</td>
-                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{formatDate(p.generatedAt)}</td>
+                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{formatDate(p.createdAt)}</td>
                       </tr>
                     ))}
                     {payslips.length === 0 && (

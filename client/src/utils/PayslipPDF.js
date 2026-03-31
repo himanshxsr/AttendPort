@@ -62,9 +62,9 @@ export const generatePayslipPDF = (user, payslip) => {
   const attendanceData = [
     ['PAY DAYS', 'ATTENDANCE ARREAR DAYS', 'INCREMENT ARREAR DAYS'],
     [
-      payslip.attendanceSummary?.payDays?.toFixed(2) || '0.00',
-      payslip.attendanceSummary?.attendanceArrearDays?.toFixed(2) || '0.00',
-      payslip.attendanceSummary?.incrementArrearDays?.toFixed(2) || '0.00'
+      (Number(payslip.attendanceSummary?.payDays) || 0).toFixed(2),
+      (Number(payslip.attendanceSummary?.attendanceArrearDays) || 0).toFixed(2),
+      (Number(payslip.attendanceSummary?.incrementArrearDays) || 0).toFixed(2)
     ]
   ];
 
@@ -79,11 +79,17 @@ export const generatePayslipPDF = (user, payslip) => {
   });
 
   // 5. Earnings & Deductions side-by-side
-  const earningsData = (payslip.earnings || []).map(e => [e.label, e.rate.toFixed(2), e.monthly.toFixed(2), e.arrear.toFixed(2), e.total.toFixed(2)]);
-  earningsData.push([{ content: 'TOTAL EARNINGS', styles: { fontStyle: 'bold' } }, '', '', '', { content: payslip.totalEarnings.toFixed(2), styles: { fontStyle: 'bold' } }]);
+  const earningsData = (payslip.earnings || []).map(e => [
+    e.label, 
+    (Number(e.rate) || 0).toFixed(2), 
+    (Number(e.monthly) || 0).toFixed(2), 
+    (Number(e.arrear) || 0).toFixed(2), 
+    (Number(e.total) || 0).toFixed(2)
+  ]);
+  earningsData.push([{ content: 'TOTAL EARNINGS', styles: { fontStyle: 'bold' } }, '', '', '', { content: (Number(payslip.totalEarnings) || 0).toFixed(2), styles: { fontStyle: 'bold' } }]);
 
-  const deductionsData = (payslip.deductions || []).map(d => [d.label, d.total.toFixed(2)]);
-  deductionsData.push([{ content: 'TOTAL DEDUCTIONS', styles: { fontStyle: 'bold' } }, { content: payslip.totalDeductions.toFixed(2), styles: { fontStyle: 'bold' } }]);
+  const deductionsData = (payslip.deductions || []).map(d => [d.label, (Number(d.total) || 0).toFixed(2)]);
+  deductionsData.push([{ content: 'TOTAL DEDUCTIONS', styles: { fontStyle: 'bold' } }, { content: (Number(payslip.totalDeductions) || 0).toFixed(2), styles: { fontStyle: 'bold' } }]);
 
   // Earnings Table
   doc.autoTable({
@@ -123,7 +129,7 @@ export const generatePayslipPDF = (user, payslip) => {
   doc.autoTable({
     startY: finalTableY + 5,
     body: [
-      ['NET PAY (INR)', payslip.netPay.toFixed(2)],
+      ['NET PAY (INR)', (Number(payslip.netPay) || 0).toFixed(2)],
       ['NET PAY IN WORDS', payslip.netPayInWords || '']
     ],
     theme: 'grid',
@@ -142,7 +148,12 @@ export const generatePayslipPDF = (user, payslip) => {
   doc.text('LEAVE BALANCE', pageWidth / 2, doc.lastAutoTable.finalY + 10, { align: 'center' });
   doc.setTextColor(0, 0, 0);
 
-  const leaveData = (payslip.leaveBalances || []).map(l => [l.type, l.opening.toFixed(2), l.availed.toFixed(2), l.closing.toFixed(2)]);
+  const leaveData = (payslip.leaveBalances || []).map(l => [
+    l.type, 
+    (Number(l.opening) || 0).toFixed(2), 
+    (Number(l.availed) || 0).toFixed(2), 
+    (Number(l.closing) || 0).toFixed(2)
+  ]);
   doc.autoTable({
     startY: doc.lastAutoTable.finalY + 13,
     head: [['LEAVE TYPE', 'OPENING BALANCE', 'AVAILED LEAVE', 'CLOSING BALANCE']],
