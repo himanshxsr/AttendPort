@@ -1,32 +1,43 @@
 const Payslip = require('../models/Payslip');
 const User = require('../models/User');
-const Attendance = require('../models/Attendance');
 
-// @desc    Generate a payslip (Admin)
+// @desc    Generate or update a payslip (Admin)
 // @route   POST /api/admin/generate-payslip
 // @access  Private/Admin
 exports.adminGeneratePayslip = async (req, res, next) => {
   try {
-    const { userId, month, year, earnings, deductions, attendanceInfo } = req.body;
+    const { 
+      userId, 
+      month, 
+      year, 
+      employeeDetails, 
+      attendanceSummary, 
+      earnings, 
+      deductions, 
+      leaveBalances, 
+      netPayInWords 
+    } = req.body;
 
-    // Calculate totals on server-side for security and accuracy
-    const totalEarnings = earnings.reduce((sum, item) => sum + Number(item.amount), 0);
-    const totalDeductions = deductions.reduce((sum, item) => sum + Number(item.amount), 0);
+    // Calculate totals automatically
+    const totalEarnings = (earnings || []).reduce((acc, curr) => acc + (curr.total || 0), 0);
+    const totalDeductions = (deductions || []).reduce((acc, curr) => acc + (curr.total || 0), 0);
     const netPay = totalEarnings - totalDeductions;
 
-    // Upsert (Update if exists, otherwise Create)
+    // Find and update or create new
     const payslip = await Payslip.findOneAndUpdate(
       { userId, month, year },
       {
+        employeeDetails,
+        attendanceSummary,
         earnings,
         deductions,
+        leaveBalances,
         totalEarnings,
         totalDeductions,
         netPay,
-        attendanceInfo,
-        generatedAt: Date.now()
+        netPayInWords
       },
-      { upsert: true, new: true, runValidators: true }
+      { upsert: true, new: true }
     );
 
     res.status(201).json(payslip);

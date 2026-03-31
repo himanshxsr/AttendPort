@@ -204,6 +204,12 @@ const AdminPage = () => {
   const updatePayrollRow = (type, index, field, value) => {
     const newItems = [...payrollForm[type]];
     newItems[index][field] = value;
+    
+    // Automatically update the total if it's earnings
+    if (type === 'earnings') {
+      newItems[index].total = (Number(newItems[index].monthly) || 0) + (Number(newItems[index].arrear) || 0);
+    }
+    
     setPayrollForm({ ...payrollForm, [type]: newItems });
   };
 
@@ -816,6 +822,7 @@ const AdminPage = () => {
             </div>
           </div>
         )}
+
         {/* Deleted Users Tab */}
         {activeTab === 'deleted' && (
           <div className="glass-card" style={{ overflow: 'hidden' }}>
@@ -909,8 +916,6 @@ const AdminPage = () => {
             </div>
           </div>
         )}
-
-        {/* Holidays Tab */}
         {activeTab === 'holidays' && (
           <div className="glass-card" style={{ padding: '1.5rem' }}>
             <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem' }}>Holiday Management</h2>

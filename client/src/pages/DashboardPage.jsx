@@ -358,6 +358,23 @@ const DashboardPage = () => {
           >
             Payslips
           </button>
+          <button 
+            onClick={() => setActiveView('payslips')}
+            className={`btn-toggle ${activeView === 'payslips' ? 'active' : ''}`}
+            style={{
+              padding: '0.625rem 1.25rem',
+              borderRadius: '0.75rem',
+              border: 'none',
+              background: activeView === 'payslips' ? 'var(--accent-indigo)' : 'rgba(255,255,255,0.05)',
+              color: activeView === 'payslips' ? 'white' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Payslips
+          </button>
         </div>
 
         {activeView === 'summary' && (

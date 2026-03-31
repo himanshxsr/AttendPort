@@ -1,87 +1,158 @@
-import { jsPDF } from 'jspdf';
+import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 export const generatePayslipPDF = (user, payslip) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // --- Header ---
-  doc.setFontSize(22);
-  doc.setTextColor(63, 81, 181); // Indigo
-  doc.text('ELISIUM PROJECTS', 14, 22);
-  
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text('Official Monthly Payslip', 14, 28);
-  doc.text(`Date of Issue: ${new Date().toLocaleDateString()}`, pageWidth - 14, 22, { align: 'right' });
-
-  doc.setDrawColor(200);
-  doc.line(14, 35, pageWidth - 14, 35);
-
-  // --- Employee Info Section ---
-  doc.setFontSize(12);
-  doc.setTextColor(0);
+  // 1. Header
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('Employee Details', 14, 45);
-
+  doc.text('Cryenx Labs', pageWidth - 20, 20, { align: 'right' });
+  
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
+  const address = [
+    '(Appease IT Solutions Pvt. Ltd), Wework Prestige Cube,',
+    'Site No. 26, Hosur Road, Adugodi, Koramangala,',
+    'Bangalore, Karnataka, Bengaluru,',
+    'Karnataka- 560030'
+  ];
+  address.forEach((line, index) => {
+    doc.text(line, pageWidth - 20, 26 + (index * 4), { align: 'right' });
+  });
+
+  // 2. Title
+  doc.setDrawColor(0);
+  doc.setFillColor(31, 41, 55); // Dark gray header
+  doc.rect(15, 45, pageWidth - 30, 8, 'F');
+  doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
-  doc.text(`Name: ${user.name}`, 14, 52);
-  doc.text(`Email: ${user.email}`, 14, 58);
-  doc.text(`Designation: ${user.role || 'Employee'}`, 14, 64);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`PAYSLIP FOR ${payslip.month.toUpperCase()} ${payslip.year}`, pageWidth / 2, 50, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
 
-  doc.text(`Period: ${payslip.month} ${payslip.year}`, pageWidth - 14, 52, { align: 'right' });
-  doc.text(`Present Days: ${payslip.attendanceInfo?.presentDays || 0} / ${payslip.attendanceInfo?.totalDays || '--'}`, pageWidth - 14, 58, { align: 'right' });
+  // 3. Employee Details Grid
+  const details = payslip.employeeDetails || {};
+  const gridData = [
+    ['Name', payslip.userId?.name || user?.name, 'PAN', details.pan || ''],
+    ['Employee Code', user?.employeeCode || details.employeeCode || '', 'Sex', details.sex || ''],
+    ['Designation', details.designation || '', 'Account Number', details.accountNumber || ''],
+    ['Location', details.location || '', 'PF Account Number', details.pfAccountNumber || ''],
+    ['Joining Date', details.joiningDate || '', 'PF UAN', details.pfUan || ''],
+    ['Leaving Date', details.leavingDate || '', 'ESI Number', details.esiNumber || ''],
+    ['Tax Regime', details.taxRegime || '', '', '']
+  ];
 
-  // --- Earnings & Deductions Tables ---
-  const earningsData = payslip.earnings.map(item => [item.label, `INR ${item.amount.toLocaleString()}`]);
-  const deductionsData = payslip.deductions.map(item => [item.label, `INR ${item.amount.toLocaleString()}`]);
+  doc.autoTable({
+    startY: 53,
+    body: gridData,
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2 },
+    columnStyles: {
+      0: { fontStyle: 'bold', fillColor: [240, 240, 240], cellWidth: 35 },
+      1: { cellWidth: 55 },
+      2: { fontStyle: 'bold', fillColor: [240, 240, 240], cellWidth: 35 },
+      3: { cellWidth: 55 },
+    },
+    margin: { left: 15, right: 15 }
+  });
+
+  // 4. Attendance Summary
+  const attendanceData = [
+    ['PAY DAYS', 'ATTENDANCE ARREAR DAYS', 'INCREMENT ARREAR DAYS'],
+    [
+      payslip.attendanceSummary?.payDays?.toFixed(2) || '0.00',
+      payslip.attendanceSummary?.attendanceArrearDays?.toFixed(2) || '0.00',
+      payslip.attendanceSummary?.incrementArrearDays?.toFixed(2) || '0.00'
+    ]
+  ];
+
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 5,
+    head: [attendanceData[0]],
+    body: [attendanceData[1]],
+    theme: 'grid',
+    headStyles: { fillColor: [31, 41, 55], textColor: 255, halign: 'center', fontSize: 8 },
+    styles: { halign: 'center', fontSize: 9 },
+    margin: { left: 15, right: 15 }
+  });
+
+  // 5. Earnings & Deductions side-by-side
+  const earningsData = (payslip.earnings || []).map(e => [e.label, e.rate.toFixed(2), e.monthly.toFixed(2), e.arrear.toFixed(2), e.total.toFixed(2)]);
+  earningsData.push([{ content: 'TOTAL EARNINGS', styles: { fontStyle: 'bold' } }, '', '', '', { content: payslip.totalEarnings.toFixed(2), styles: { fontStyle: 'bold' } }]);
+
+  const deductionsData = (payslip.deductions || []).map(d => [d.label, d.total.toFixed(2)]);
+  deductionsData.push([{ content: 'TOTAL DEDUCTIONS', styles: { fontStyle: 'bold' } }, { content: payslip.totalDeductions.toFixed(2), styles: { fontStyle: 'bold' } }]);
 
   // Earnings Table
   doc.autoTable({
-    startY: 75,
-    head: [['Earnings', 'Amount']],
-    body: earningsData,
-    theme: 'striped',
-    headStyles: { fillColor: [63, 81, 181] },
-    margin: { left: 14, right: pageWidth / 2 + 5 },
+    startY: doc.lastAutoTable.finalY + 5,
+    head: [['EARNINGS (INR)', '', '', '', '']],
+    body: [['COMPONENTS', 'RATE', 'MONTHLY', 'ARREAR', 'TOTAL'], ...earningsData],
+    theme: 'grid',
+    headStyles: { fillColor: [31, 41, 55], textColor: 255, halign: 'center' },
+    styles: { fontSize: 8 },
+    columnStyles: { 0: { cellWidth: 40 }, 4: { halign: 'right' } },
+    margin: { left: 15, right: pageWidth / 2 + 2 },
+    didParseCell: (data) => {
+      if (data.row.index === 0) data.cell.styles.fontStyle = 'bold';
+    }
   });
+
+  const earningsY = doc.lastAutoTable.finalY;
 
   // Deductions Table
   doc.autoTable({
-    startY: 75,
-    head: [['Deductions', 'Amount']],
-    body: deductionsData,
-    theme: 'striped',
-    headStyles: { fillColor: [244, 63, 94] },
-    margin: { left: pageWidth / 2 + 5, right: 14 },
+    startY: doc.autoTable.previous.startY,
+    head: [['DEDUCTIONS (INR)', '']],
+    body: [['COMPONENTS', 'TOTAL'], ...deductionsData],
+    theme: 'grid',
+    headStyles: { fillColor: [31, 41, 55], textColor: 255, halign: 'center' },
+    styles: { fontSize: 8 },
+    columnStyles: { 1: { halign: 'right' } },
+    margin: { left: pageWidth / 2 + 2, right: 15 },
+    didParseCell: (data) => {
+      if (data.row.index === 0) data.cell.styles.fontStyle = 'bold';
+    }
   });
 
-  // --- Summary ---
-  const finalY = Math.max(doc.lastAutoTable.finalY, 75);
-  
-  doc.setDrawColor(200);
-  doc.line(14, finalY + 10, pageWidth - 14, finalY + 10);
+  const finalTableY = Math.max(earningsY, doc.lastAutoTable.finalY);
 
-  doc.setFontSize(11);
-  doc.text(`Total Earnings:`, pageWidth - 80, finalY + 20);
-  doc.text(`INR ${payslip.totalEarnings.toLocaleString()}`, pageWidth - 14, finalY + 20, { align: 'right' });
+  // 6. Net Pay Summary
+  doc.autoTable({
+    startY: finalTableY + 5,
+    body: [
+      ['NET PAY (INR)', payslip.netPay.toFixed(2)],
+      ['NET PAY IN WORDS', payslip.netPayInWords || '']
+    ],
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 3 },
+    columnStyles: {
+      0: { fontStyle: 'bold', fillColor: [220, 220, 220], cellWidth: 50 },
+      1: { fontStyle: 'bold' }
+    },
+    margin: { left: 15, right: 15 }
+  });
 
-  doc.text(`Total Deductions:`, pageWidth - 80, finalY + 28);
-  doc.text(`INR ${payslip.totalDeductions.toLocaleString()}`, pageWidth - 14, finalY + 28, { align: 'right' });
+  // 7. Leave Balance
+  doc.setFillColor(31, 41, 55);
+  doc.rect(15, doc.lastAutoTable.finalY + 5, pageWidth - 30, 8, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.text('LEAVE BALANCE', pageWidth / 2, doc.lastAutoTable.finalY + 10, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
 
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(63, 81, 181);
-  doc.text(`NET PAYABLE:`, pageWidth - 80, finalY + 40);
-  doc.text(`INR ${payslip.netPay.toLocaleString()}`, pageWidth - 14, finalY + 40, { align: 'right' });
+  const leaveData = (payslip.leaveBalances || []).map(l => [l.type, l.opening.toFixed(2), l.availed.toFixed(2), l.closing.toFixed(2)]);
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 13,
+    head: [['LEAVE TYPE', 'OPENING BALANCE', 'AVAILED LEAVE', 'CLOSING BALANCE']],
+    body: leaveData,
+    theme: 'grid',
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8 },
+    styles: { fontSize: 8 },
+    margin: { left: 15, right: 15 }
+  });
 
-  // --- Footer ---
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'italic');
-  doc.setTextColor(150);
-  doc.text('This is a computer-generated document and does not require a physical signature.', pageWidth / 2, 280, { align: 'center' });
-  doc.text('© Elisium Projects Inc.', pageWidth / 2, 285, { align: 'center' });
-
-  doc.save(`Payslip_${user.name.replace(/\s/g, '_')}_${payslip.month}_${payslip.year}.pdf`);
+  // Save the PDF
+  doc.save(`Payslip_${user.name}_${payslip.month}_${payslip.year}.pdf`);
 };

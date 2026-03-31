@@ -7,49 +7,60 @@ const payslipSchema = new mongoose.Schema({
     required: true,
   },
   month: {
-    type: String, // "January", "February", etc.
+    type: String, // e.g., "November"
     required: true,
   },
   year: {
-    type: Number,
+    type: Number, // e.g., 2024
     required: true,
+  },
+  // Employee details snapshot for permanent record
+  employeeDetails: {
+    pan: String,
+    sex: String,
+    designation: String,
+    accountNumber: String,
+    location: String,
+    pfAccountNumber: String,
+    joiningDate: String,
+    pfUan: String,
+    leavingDate: String,
+    esiNumber: String,
+    taxRegime: String,
+  },
+  attendanceSummary: {
+    payDays: { type: Number, default: 0 },
+    attendanceArrearDays: { type: Number, default: 0 },
+    incrementArrearDays: { type: Number, default: 0 },
   },
   earnings: [{
     label: { type: String, required: true },
-    amount: { type: Number, required: true }
+    rate: { type: Number, default: 0 },
+    monthly: { type: Number, default: 0 },
+    arrear: { type: Number, default: 0 },
+    total: { type: Number, default: 0 },
   }],
   deductions: [{
     label: { type: String, required: true },
-    amount: { type: Number, required: true }
+    total: { type: Number, default: 0 },
   }],
-  totalEarnings: {
-    type: Number,
-    required: true,
-  },
-  totalDeductions: {
-    type: Number,
-    required: true,
-  },
-  netPay: {
-    type: Number,
-    required: true,
-  },
-  status: {
-    type: String,
-    enum: ['Paid', 'Generated'],
-    default: 'Generated',
-  },
-  attendanceInfo: {
-    presentDays: { type: Number, default: 0 },
-    totalDays: { type: Number, default: 0 },
-  },
-  generatedAt: {
+  leaveBalances: [{
+    type: { type: String, required: true },
+    opening: { type: Number, default: 0 },
+    availed: { type: Number, default: 0 },
+    closing: { type: Number, default: 0 },
+  }],
+  totalEarnings: { type: Number, default: 0 },
+  totalDeductions: { type: Number, default: 0 },
+  netPay: { type: Number, required: true },
+  netPayInWords: { type: String },
+  createdAt: {
     type: Date,
     default: Date.now,
   },
 });
 
-// Compound index to ensure uniqueness per user/month/year
+// Ensure only one payslip per user per month/year
 payslipSchema.index({ userId: 1, month: 1, year: 1 }, { unique: true });
 
 module.exports = mongoose.model('Payslip', payslipSchema);
