@@ -1,5 +1,5 @@
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export const generatePayslipPDF = (user, payslip) => {
   const doc = new jsPDF();
@@ -44,7 +44,7 @@ export const generatePayslipPDF = (user, payslip) => {
     ['Tax Regime', details.taxRegime || '', '', '']
   ];
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: 53,
     body: gridData,
     theme: 'grid',
@@ -68,7 +68,7 @@ export const generatePayslipPDF = (user, payslip) => {
     ]
   ];
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: doc.lastAutoTable.finalY + 5,
     head: [attendanceData[0]],
     body: [attendanceData[1]],
@@ -92,7 +92,7 @@ export const generatePayslipPDF = (user, payslip) => {
   deductionsData.push([{ content: 'TOTAL DEDUCTIONS', styles: { fontStyle: 'bold' } }, { content: (Number(payslip.totalDeductions) || 0).toFixed(2), styles: { fontStyle: 'bold' } }]);
 
   // Earnings Table
-  doc.autoTable({
+  autoTable(doc, {
     startY: doc.lastAutoTable.finalY + 5,
     head: [['EARNINGS (INR)', '', '', '', '']],
     body: [['COMPONENTS', 'RATE', 'MONTHLY', 'ARREAR', 'TOTAL'], ...earningsData],
@@ -107,10 +107,11 @@ export const generatePayslipPDF = (user, payslip) => {
   });
 
   const earningsY = doc.lastAutoTable.finalY;
+  const earningsStartY = doc.lastAutoTable.settings.startY;
 
-  // Deductions Table
-  doc.autoTable({
-    startY: doc.autoTable.previous.startY,
+  // Deductions Table (Synchronized Y with Earnings)
+  autoTable(doc, {
+    startY: earningsStartY,
     head: [['DEDUCTIONS (INR)', '']],
     body: [['COMPONENTS', 'TOTAL'], ...deductionsData],
     theme: 'grid',
@@ -126,7 +127,7 @@ export const generatePayslipPDF = (user, payslip) => {
   const finalTableY = Math.max(earningsY, doc.lastAutoTable.finalY);
 
   // 6. Net Pay Summary
-  doc.autoTable({
+  autoTable(doc, {
     startY: finalTableY + 5,
     body: [
       ['NET PAY (INR)', (Number(payslip.netPay) || 0).toFixed(2)],
@@ -154,7 +155,7 @@ export const generatePayslipPDF = (user, payslip) => {
     (Number(l.availed) || 0).toFixed(2), 
     (Number(l.closing) || 0).toFixed(2)
   ]);
-  doc.autoTable({
+  autoTable(doc, {
     startY: doc.lastAutoTable.finalY + 13,
     head: [['LEAVE TYPE', 'OPENING BALANCE', 'AVAILED LEAVE', 'CLOSING BALANCE']],
     body: leaveData,
