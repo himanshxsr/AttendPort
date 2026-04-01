@@ -1,8 +1,13 @@
 import axios from 'axios';
 
+// Smart URL detection: if we're on localhost, use local API; otherwise, use production Render API.
+// This prevents local .env.local settings from breaking the production build.
+const isLocal = window.location.hostname === 'localhost';
+const prodAPI = 'https://attendport-azwy.onrender.com/api';
+const localAPI = 'http://localhost:5000/api';
+
 const API = axios.create({
-  // Use VITE_API_URL if provided, else fall back to production Render backend
-  baseURL: import.meta.env.VITE_API_URL || 'https://attendport-azwy.onrender.com/api',
+  baseURL: isLocal ? (import.meta.env.VITE_API_URL || localAPI) : prodAPI,
 });
 
 // Add token to every request

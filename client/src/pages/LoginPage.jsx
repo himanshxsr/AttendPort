@@ -27,7 +27,12 @@ const LoginPage = () => {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL || 'https://attendport-azwy.onrender.com/api'}/auth/google`;
+    const isLocal = window.location.hostname === 'localhost';
+    const prodAPI = 'https://attendport-azwy.onrender.com/api';
+    const localAPI = 'http://localhost:5000/api';
+    const baseURL = isLocal ? (import.meta.env.VITE_API_URL || localAPI) : prodAPI;
+
+    window.location.href = `${baseURL}/auth/google`;
   };
 
   return (
