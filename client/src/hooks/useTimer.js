@@ -36,12 +36,14 @@ const useTimer = (checkInTime) => {
   useEffect(() => {
     if (checkInTime) {
       start(checkInTime);
+    } else {
+      reset();
     }
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [checkInTime, start]);
+  }, [checkInTime, start, reset]);
 
   const hours = Math.floor(elapsed / 3600000);
   const minutes = Math.floor((elapsed % 3600000) / 60000);

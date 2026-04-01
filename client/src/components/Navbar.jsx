@@ -66,7 +66,8 @@ const Navbar = () => {
   );
 
   return (
-    <nav className="navbar" style={{ position: 'sticky', top: 0, zIndex: 1000 }}>
+    <>
+      <nav className="navbar" style={{ position: 'sticky', top: 0, zIndex: 1000 }}>
       {/* Desktop Navbar */}
       <div style={{
         maxWidth: '1280px',
@@ -172,6 +173,7 @@ const Navbar = () => {
           {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
+    </nav>
 
       {/* Mobile Menu Overlay */}
       {isMenuOpen && (
@@ -237,7 +239,7 @@ const Navbar = () => {
           .mobile-only { display: block !important; }
         }
       `}</style>
-    </nav>
+    </>
   );
 };
 
