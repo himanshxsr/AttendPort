@@ -1,7 +1,19 @@
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
-
+const WorkSession = require('../models/WorkSession');
 const Holiday = require('../models/Holiday');
+
+// Helper to generate a unique 4-digit employee code
+const generateUniqueEmployeeCode = async () => {
+  let isUnique = false;
+  let code;
+  while (!isUnique) {
+    code = Math.floor(1000 + Math.random() * 9000).toString();
+    const exists = await User.exists({ employeeCode: code });
+    if (!exists) isUnique = true;
+  }
+  return code;
+};
 
 // @desc    Get all attendance logs (Admin)
 // @route   GET /api/admin/all-attendance
@@ -9,9 +21,25 @@ const Holiday = require('../models/Holiday');
 exports.getAllAttendance = async (req, res, next) => {
   try {
     const logs = await Attendance.find({})
-      .populate('userId', 'name email')
+      .populate('userId', 'name email avatar')
+      .populate('workSessions')
       .sort({ date: -1 });
-    res.json(logs);
+
+    // Fetch all active sessions (no endTime)
+    const activeSessions = await WorkSession.find({ endTime: { $exists: false } });
+    const activeAttendanceIds = new Set(activeSessions.map(s => s.attendanceId.toString()));
+
+    // Virtualize logs: if an active session exists, treat checkOut as null for the UI
+    const virtualizedLogs = logs.map(log => {
+      const logObj = log.toObject();
+      if (activeAttendanceIds.has(log._id.toString())) {
+        logObj.checkOut = null;
+        logObj.status = ''; // Clear status to allow 'ACTIVE' display in frontend
+      }
+      return logObj;
+    });
+
+    res.json(virtualizedLogs);
   } catch (error) {
     next(error);
   }
@@ -33,7 +61,7 @@ exports.getAllUsers = async (req, res, next) => {
 // @route   POST /api/admin/add-employee
 // @access  Private/Admin
 exports.addEmployee = async (req, res, next) => {
-  const { name, email, role } = req.body;
+  const { name, email, role, avatar } = req.body;
 
   try {
     const userExists = await User.findOne({ email });
@@ -46,16 +74,26 @@ exports.addEmployee = async (req, res, next) => {
         userExists.role = role || 'Employee';
         userExists.deletedBy = undefined;
         userExists.deletedAt = undefined;
+        
+        // If the user being restored lacks an employee code, generate one
+        if (!userExists.employeeCode) {
+          userExists.employeeCode = await generateUniqueEmployeeCode();
+        }
+
         await userExists.save();
         return res.status(200).json(userExists);
       }
       return res.status(400).json({ message: 'User already exists' });
     }
 
+    const employeeCode = await generateUniqueEmployeeCode();
+
     const user = await User.create({
       name,
       email,
       role: role || 'Employee',
+      employeeCode,
+      avatar,
     });
 
     res.status(201).json(user);
@@ -201,6 +239,37 @@ exports.markManualAttendance = async (req, res, next) => {
       });
     }
     res.json(attendance);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update user profile details (Admin)
+// @route   PUT /api/admin/update-profile/:id
+// @access  Private/Admin
+exports.updateUserProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const profileFields = [
+      'employeeCode', 'designation', 'location', 'pan', 'sex', 
+      'accountNumber', 'bankName', 'pfAccountNumber', 'pfUAN', 
+      'esiNumber', 'joiningDate', 'leavingDate', 'taxRegime',
+      'casualLeaveBalance', 'sickLeaveBalance', 'avatar'
+    ];
+
+    profileFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        user[field] = req.body[field];
+      }
+    });
+
+    await user.save();
+    res.json(user);
   } catch (error) {
     next(error);
   }

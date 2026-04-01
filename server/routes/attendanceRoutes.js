@@ -7,7 +7,7 @@ const {
   getMyLogs,
   getHolidays,
 } = require('../controllers/attendanceController');
-const { applyLeave, getMyLeaves } = require('../controllers/leaveController');
+const { applyLeave, getMyLeaves, cancelLeave } = require('../controllers/leaveController');
 const { getMyPayslips } = require('../controllers/payslipController');
 const { protect } = require('../middleware/authMiddleware');
 

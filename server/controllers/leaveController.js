@@ -1,5 +1,37 @@
 const Leave = require('../models/Leave');
 const Attendance = require('../models/Attendance');
+const User = require('../models/User');
+
+// Helper to update leave balances month-over-month
+const processLeaveAccrual = async (user) => {
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+  
+  // Initialization for existing users who don't have these fields yet
+  if (!user.lastLeaveAccrualDate) {
+    user.casualLeaveBalance = 2;
+    user.sickLeaveBalance = 2;
+    user.lastLeaveAccrualDate = currentMonthStr;
+    await user.save();
+    return;
+  }
+
+  if (user.lastLeaveAccrualDate !== currentMonthStr) {
+    const [lastYear, lastMonth] = user.lastLeaveAccrualDate.split('-').map(Number);
+    const currYear = now.getFullYear();
+    const currMonth = now.getMonth() + 1;
+    
+    // Calculate difference in months
+    const monthsPassed = (currYear - lastYear) * 12 + (currMonth - lastMonth);
+
+    if (monthsPassed > 0) {
+      user.casualLeaveBalance += (monthsPassed * 2);
+      user.sickLeaveBalance = 2; // Resets each month, no carry forward
+      user.lastLeaveAccrualDate = currentMonthStr;
+      await user.save();
+    }
+  }
+};
 
 // @desc    Apply for leave
 // @route   POST /api/attendance/apply-leave
@@ -32,8 +64,18 @@ exports.applyLeave = async (req, res, next) => {
 // @access  Private
 exports.getMyLeaves = async (req, res, next) => {
   try {
+    const user = await User.findById(req.user._id);
+    if (user) {
+      await processLeaveAccrual(user);
+    }
     const leaves = await Leave.find({ userId: req.user._id }).sort({ appliedAt: -1 });
-    res.json(leaves);
+    res.json({
+      leaves,
+      balances: {
+        casual: user?.casualLeaveBalance || 0,
+        sick: user?.sickLeaveBalance || 0
+      }
+    });
   } catch (error) {
     next(error);
   }
@@ -45,7 +87,7 @@ exports.getMyLeaves = async (req, res, next) => {
 exports.getAllLeaves = async (req, res, next) => {
   try {
     const leaves = await Leave.find({})
-      .populate('userId', 'name email')
+      .populate('userId', 'name email casualLeaveBalance sickLeaveBalance avatar')
       .sort({ appliedAt: -1 });
     res.json(leaves);
   } catch (error) {
@@ -86,12 +128,87 @@ exports.updateLeaveStatus = async (req, res, next) => {
           { upsert: true, new: true }
         );
       }
+
+      // SUBTRACT FROM BALANCE
+      const user = await User.findById(leave.userId);
+      if (user) {
+        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        if (leave.type === 'Casual') {
+          user.casualLeaveBalance = Math.max(0, user.casualLeaveBalance - days);
+        } else if (leave.type === 'Sick') {
+          user.sickLeaveBalance = Math.max(0, user.sickLeaveBalance - days);
+        }
+        await user.save();
+      }
     } else if (status === 'Rejected' || status === 'Pending') {
       // Logic for changing status from Approved back to something else
       // Ideally, recalculate attendance, but for now we focus on the approval flow
     }
 
     res.json(leave);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Cancel leave (User)
+// @route   PUT /api/attendance/cancel-leave/:id
+// @access  Private
+exports.cancelLeave = async (req, res, next) => {
+  try {
+    const leave = await Leave.findById(req.params.id);
+
+    if (!leave) {
+      return res.status(404).json({ message: 'Leave request not found' });
+    }
+
+    // Check ownership
+    if (leave.userId.toString() !== req.user._id.toString()) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+
+    // Check if it's already processed (only Allow if Pending or Approved)
+    if (leave.status === 'Rejected' || leave.status === 'Cancelled') {
+      return res.status(400).json({ message: `Cannot cancel a leave that is already ${leave.status}` });
+    }
+
+    // Restriction: Employees should not be able to cancel a leave that happened in the past
+    // Only allow cancelling future leaves (start today or later)
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (leave.startDate < todayStr) {
+      return res.status(400).json({ message: 'Cannot cancel a leave that has already started or passed' });
+    }
+
+    const previousStatus = leave.status;
+    leave.status = 'Cancelled';
+    await leave.save();
+
+    // Rollback logic for Approved leaves
+    if (previousStatus === 'Approved') {
+      const start = new Date(leave.startDate);
+      const end = new Date(leave.endDate);
+      const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+      // 1. Restore balance
+      const user = await User.findById(leave.userId);
+      if (user) {
+        if (leave.type === 'Casual') {
+          user.casualLeaveBalance += days;
+        } else if (leave.type === 'Sick') {
+          user.sickLeaveBalance += days;
+        }
+        await user.save();
+      }
+
+      // 2. Clear attendance markers
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        // Delete the 'Leave' entry for this user on this date
+        await Attendance.findOneAndDelete({ userId: leave.userId, date: dateStr, status: 'Leave' });
+      }
+    }
+
+    res.json({ message: 'Leave cancelled successfully', leave });
   } catch (error) {
     next(error);
   }

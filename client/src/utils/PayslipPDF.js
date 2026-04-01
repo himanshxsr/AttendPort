@@ -1,13 +1,54 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import logo from '../assets/black email.jpg';
 
-export const generatePayslipPDF = (user, payslip) => {
+// Helper to convert number to Indian currency words
+const numberToWords = (num) => {
+  if (num === 0) return 'Zero Only';
+  const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  const format = (n) => {
+    if (n < 20) return a[n];
+    if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? '-' + a[n % 10] : ' ');
+    if (n < 1000) return a[Math.floor(n / 100)] + 'Hundred ' + (n % 100 !== 0 ? 'and ' + format(n % 100) : '');
+    return '';
+  };
+
+  let str = '';
+  const crore = Math.floor(num / 10000000);
+  num %= 10000000;
+  const lakh = Math.floor(num / 100000);
+  num %= 100000;
+  const thousand = Math.floor(num / 1000);
+  num %= 1000;
+  const remaining = Math.floor(num);
+
+  if (crore > 0) str += format(crore) + 'Crore ';
+  if (lakh > 0) str += format(lakh) + 'Lakh ';
+  if (thousand > 0) str += format(thousand) + 'Thousand ';
+  if (remaining > 0) str += format(remaining);
+
+  return str.trim() + ' Only';
+};
+
+export const generatePayslipPDF = (user, payslip, liveBalances = null) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // 0. Watermark (Center with low intensity)
+  doc.saveGraphicsState();
+  doc.setGState(new doc.GState({ opacity: 0.12 }));
+  doc.addImage(logo, 'JPEG', pageWidth / 2 - 40, pageHeight / 2 - 40, 80, 80, undefined, 'FAST');
+  doc.restoreGraphicsState();
 
   // 1. Header
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
+  
+  // Logo next to name
+  doc.addImage(logo, 'JPEG', pageWidth - 74, 10, 12, 12, undefined, 'FAST');
   doc.text('Elisium Space', pageWidth - 20, 20, { align: 'right' });
   
   doc.setFontSize(9);
@@ -33,13 +74,13 @@ export const generatePayslipPDF = (user, payslip) => {
   // 3. Employee Details Grid
   const details = payslip.employeeDetails || {};
   const gridData = [
-    ['Name', payslip.userId?.name || user?.name, 'PAN', details.pan || ''],
-    ['Employee Code', user?.employeeCode || details.employeeCode || '', 'Sex', details.sex || ''],
-    ['Designation', details.designation || '', 'Account Number', details.accountNumber || ''],
-    ['Location', details.location || '', 'PF Account Number', details.pfAccountNumber || ''],
-    ['Joining Date', details.joiningDate || '', 'PF UAN', details.pfUan || ''],
-    ['Leaving Date', details.leavingDate || '', 'ESI Number', details.esiNumber || ''],
-    ['Tax Regime', details.taxRegime || '', '', '']
+    ['Name', user?.name || payslip.userId?.name, 'PAN', user?.pan || details.pan || ''],
+    ['Employee Code', user?.employeeCode || details.employeeCode || '', 'Sex', user?.sex || details.sex || ''],
+    ['Designation', user?.designation || details.designation || '', 'Account Number', user?.accountNumber || details.accountNumber || ''],
+    ['Location', user?.location || details.location || '', 'PF Account Number', user?.pfAccountNumber || details.pfAccountNumber || ''],
+    ['Joining Date', user?.joiningDate || details.joiningDate || '', 'PF UAN', user?.pfUAN || details.pfUan || ''],
+    ['Leaving Date', user?.leavingDate || details.leavingDate || '', 'ESI Number', user?.esiNumber || details.esiNumber || ''],
+    ['Tax Regime', user?.taxRegime || details.taxRegime || '', '', '']
   ];
 
   autoTable(doc, {
@@ -129,7 +170,7 @@ export const generatePayslipPDF = (user, payslip) => {
     startY: finalTableY + 5,
     body: [
       ['NET PAY (INR)', (Number(payslip.netPay) || 0).toFixed(2)],
-      ['NET PAY IN WORDS', payslip.netPayInWords || '']
+      ['NET PAY IN WORDS', payslip.netPayInWords || numberToWords(payslip.netPay)]
     ],
     theme: 'grid',
     styles: { fontSize: 9, cellPadding: 3 },
@@ -140,29 +181,39 @@ export const generatePayslipPDF = (user, payslip) => {
     margin: { left: 15, right: 15 }
   });
 
-  // 7. Leave Balance
+  // 7. Leave Balance (Using live data if provided)
   doc.setFillColor(31, 41, 55);
   doc.rect(15, doc.lastAutoTable.finalY + 5, pageWidth - 30, 8, 'F');
   doc.setTextColor(255, 255, 255);
   doc.text('LEAVE BALANCE', pageWidth / 2, doc.lastAutoTable.finalY + 10, { align: 'center' });
   doc.setTextColor(0, 0, 0);
 
-  const leaveData = (payslip.leaveBalances || []).map(l => [
+  const finalBalances = liveBalances ? [
+    ['Casual Leave', '', '', liveBalances.casual],
+    ['Sick Leave', '', '', liveBalances.sick]
+  ] : (payslip.leaveBalances || []).map(l => [
     l.type, 
     (Number(l.opening) || 0).toFixed(2), 
     (Number(l.availed) || 0).toFixed(2), 
     (Number(l.closing) || 0).toFixed(2)
   ]);
+
   autoTable(doc, {
     startY: doc.lastAutoTable.finalY + 13,
     head: [['LEAVE TYPE', 'OPENING BALANCE', 'AVAILED LEAVE', 'CLOSING BALANCE']],
-    body: leaveData,
+    body: finalBalances,
     theme: 'grid',
     headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8 },
     styles: { fontSize: 8 },
     margin: { left: 15, right: 15 }
   });
 
+  // Generation Timestamp at bottom
+  doc.setFontSize(7);
+  doc.setTextColor(150);
+  doc.text(`This is a computer generated payslip and does not require a signature. | Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+
   // Save the PDF
   doc.save(`Payslip_${user.name}_${payslip.month}_${payslip.year}.pdf`);
 };
+

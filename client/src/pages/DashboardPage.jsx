@@ -5,8 +5,9 @@ import Navbar from '../components/Navbar';
 import Timer from '../components/Timer';
 import AttendanceLogs from '../components/AttendanceLogs';
 import AttendanceCalendar from '../components/AttendanceCalendar';
+import UserAvatar from '../components/UserAvatar';
 import { formatHours, getCompleteHistory } from '../utils/formatTime';
-import { Clock, CalendarDays, TrendingUp, CheckCircle } from 'lucide-react';
+import { Clock, CalendarDays, TrendingUp, CheckCircle, Trash2 } from 'lucide-react';
 
 const DashboardPage = () => {
   const { user } = useAuth();
@@ -23,6 +24,7 @@ const DashboardPage = () => {
   const [leaveForm, setLeaveForm] = useState({ type: 'Sick', startDate: '', endDate: '', reason: '' });
   const [leaveLoading, setLeaveLoading] = useState(false);
   const [userPayslips, setUserPayslips] = useState([]);
+  const [leaveBalances, setLeaveBalances] = useState({ casual: 0, sick: 0 });
 
   useEffect(() => {
     fetchData();
@@ -40,7 +42,8 @@ const DashboardPage = () => {
 
       setTodayData(todayRes.data);
       setHolidays(holidayRes.data);
-      setLeaves(leavesRes.data);
+      setLeaves(leavesRes.data.leaves || leavesRes.data);
+      setLeaveBalances(leavesRes.data.balances || { casual: 0, sick: 0 });
       setUserPayslips(payslipsRes.data);
       
       // Fill gaps with Absent records from the day user joined
@@ -96,6 +99,33 @@ const DashboardPage = () => {
       setError(err.response?.data?.message || 'Failed to apply for leave');
     } finally {
       setLeaveLoading(false);
+    }
+  };
+
+  const handleCancelLeave = async (id) => {
+    if (!window.confirm('Are you sure you want to cancel this leave request?')) return;
+    setLeaveLoading(true);
+    try {
+      await API.put(`/attendance/cancel-leave/${id}`);
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to cancel leave');
+    } finally {
+      setLeaveLoading(false);
+    }
+  };
+
+  const handleDownloadPayslip = async (payslip) => {
+    try {
+      // Fetch latest balances before generating PDF
+      const res = await API.get('/attendance/my-leaves');
+      const liveBalances = res.data.balances;
+      
+      const module = await import('../utils/PayslipPDF');
+      module.generatePayslipPDF(user, payslip, liveBalances);
+    } catch (err) {
+      console.error('Failed to download payslip:', err);
+      setError('Failed to fetch current balances for payslip. Please try again.');
     }
   };
 
@@ -171,21 +201,24 @@ const DashboardPage = () => {
         padding: '1.5rem 1rem',
       }}>
         {/* Welcome Header */}
-        <div style={{ marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-            Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'},{' '}
-            <span style={{
-              background: 'linear-gradient(135deg, var(--accent-indigo), var(--accent-violet))',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}>
-              {user?.name?.split(' ')[0]}
-            </span>
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '2rem' }}>
+          <UserAvatar user={user} size="xl" />
+          <div>
+            <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+              Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'},{' '}
+              <span style={{
+                background: 'linear-gradient(135deg, var(--accent-indigo), var(--accent-violet))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}>
+                {user?.name?.split(' ')[0]}
+              </span>
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -278,6 +311,28 @@ const DashboardPage = () => {
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.125rem' }}>Status</p>
                 <p style={{ fontSize: '1.25rem', fontWeight: 700, color: isCheckedIn ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
                   {isCheckedIn ? 'Active' : 'Inactive'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ padding: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '0.75rem',
+                background: 'rgba(52, 211, 153, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <CheckCircle size={20} style={{ color: 'var(--accent-emerald)' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.125rem' }}>Leave Balance</p>
+                <p style={{ fontSize: '1rem', fontWeight: 700 }}>
+                  CL: {leaveBalances.casual} | SL: {leaveBalances.sick}
                 </p>
               </div>
             </div>
@@ -426,13 +481,16 @@ const DashboardPage = () => {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                  <div>
-                    <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'white', marginBottom: '0.25rem' }}>
-                      Performance Details
-                    </h4>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      {new Date(selectedDateLog.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                    <UserAvatar user={user} size="md" />
+                    <div>
+                      <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'white', marginBottom: '0.25rem' }}>
+                        Performance Details
+                      </h4>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        {new Date(selectedDateLog.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      </p>
+                    </div>
                   </div>
                   <span className={`status-badge ${getStatusClass(selectedDateLog)}`}>
                     {getStatusDisplay(selectedDateLog)}
@@ -481,8 +539,14 @@ const DashboardPage = () => {
                     <option value="Medical">Medical Leave</option>
                     <option value="Other">Other</option>
                   </select>
+                  {((leaveForm.type === 'Casual' && leaveBalances.casual === 0) || 
+                    (leaveForm.type === 'Sick' && leaveBalances.sick === 0)) && (
+                    <p style={{ color: 'var(--accent-rose)', fontSize: '0.75rem', marginTop: '0.5rem', fontWeight: 500 }}>
+                      ⚠️ You have 0 balance for this leave type. This may be treated as Unpaid Leave.
+                    </p>
+                  )}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Start Date</label>
                     <input 
@@ -550,9 +614,34 @@ const DashboardPage = () => {
                           </div>
                         </td>
                         <td>
-                          <span className={`status-badge ${leave.status.toLowerCase()}`}>
-                            {leave.status.toUpperCase()}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <span className={`status-badge ${leave.status.toLowerCase()}`}>
+                              {leave.status.toUpperCase()}
+                            </span>
+                            {(leave.status === 'Pending' || leave.status === 'Approved') && 
+                             leave.startDate >= new Date().toISOString().split('T')[0] && (
+                              <button
+                                onClick={() => handleCancelLeave(leave._id)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--accent-rose)',
+                                  cursor: 'pointer',
+                                  padding: '0.25rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: '0.25rem',
+                                  transition: 'background 0.2s'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(244, 63, 94, 0.1)'}
+                                onMouseOut={(e) => e.currentTarget.style.background = 'none'}
+                                title="Cancel Leave"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -595,13 +684,7 @@ const DashboardPage = () => {
                       <td style={{ fontSize: '0.8rem', color: 'var(--accent-rose)' }}>₹{payslip.totalDeductions.toLocaleString()}</td>
                       <td style={{ textAlign: 'right' }}>
                         <button 
-                          onClick={() => {
-                            // Import utility dynamically to keep bundle small if possible,
-                            // or use the imported function
-                            import('../utils/PayslipPDF').then(module => {
-                              module.generatePayslipPDF(user, payslip);
-                            });
-                          }}
+                          onClick={() => handleDownloadPayslip(payslip)}
                           className="btn-gradient"
                           style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', height: 'auto' }}
                         >

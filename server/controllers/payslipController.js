@@ -6,7 +6,7 @@ const User = require('../models/User');
 // @access  Private/Admin
 exports.adminGeneratePayslip = async (req, res, next) => {
   try {
-    const { 
+    let { 
       userId, 
       month, 
       year, 
@@ -17,6 +17,27 @@ exports.adminGeneratePayslip = async (req, res, next) => {
       leaveBalances, 
       netPayInWords 
     } = req.body;
+
+    // If employeeDetails not provided, auto-capture from User profile
+    if (!employeeDetails || Object.keys(employeeDetails).length === 0) {
+      const user = await User.findById(userId);
+      if (user) {
+        employeeDetails = {
+          pan: user.pan,
+          sex: user.sex,
+          designation: user.designation,
+          accountNumber: user.accountNumber,
+          location: user.location,
+          pfAccountNumber: user.pfAccountNumber,
+          joiningDate: user.joiningDate,
+          pfUan: user.pfUAN,
+          leavingDate: user.leavingDate,
+          esiNumber: user.esiNumber,
+          taxRegime: user.taxRegime,
+          employeeCode: user.employeeCode,
+        };
+      }
+    }
 
     // Calculate totals automatically
     const totalEarnings = (earnings || []).reduce((acc, curr) => acc + (curr.total || 0), 0);
@@ -52,7 +73,7 @@ exports.adminGeneratePayslip = async (req, res, next) => {
 exports.adminGetAllPayslips = async (req, res, next) => {
   try {
     const payslips = await Payslip.find({})
-      .populate('userId', 'name email')
+      .populate('userId', 'name email avatar')
       .sort({ year: -1, month: -1 });
     res.json(payslips);
   } catch (error) {
@@ -68,6 +89,24 @@ exports.getMyPayslips = async (req, res, next) => {
     const payslips = await Payslip.find({ userId: req.user._id })
       .sort({ year: -1, month: -1 });
     res.json(payslips);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Delete a payslip (Admin)
+// @route   DELETE /api/admin/payslip/:id
+// @access  Private/Admin
+exports.adminDeletePayslip = async (req, res, next) => {
+  try {
+    const payslip = await Payslip.findById(req.params.id);
+
+    if (!payslip) {
+      return res.status(404).json({ message: 'Payslip not found' });
+    }
+
+    await payslip.deleteOne();
+    res.json({ message: 'Payslip deleted successfully' });
   } catch (error) {
     next(error);
   }

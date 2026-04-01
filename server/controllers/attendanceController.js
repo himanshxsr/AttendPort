@@ -90,6 +90,11 @@ exports.checkIn = async (req, res, next) => {
         checkIn: new Date(),
         status: '', // Empty initially, updated on checkOut or cleanup
       });
+    } else {
+      // If user checks in again (re-entry), clear stale checkout and status
+      attendance.checkOut = undefined;
+      attendance.status = '';
+      await attendance.save();
     }
 
     // 2. Check for 3-session limit
@@ -207,7 +212,10 @@ exports.getTodayAttendance = async (req, res, next) => {
 // @access  Private
 exports.getMyLogs = async (req, res, next) => {
   try {
-    const logs = await Attendance.find({ userId: req.user._id }).sort({ date: -1 });
+    const logs = await Attendance.find({ userId: req.user._id })
+      .populate('userId', 'name email avatar')
+      .populate('workSessions')
+      .sort({ date: -1 });
     res.json(logs);
   } catch (error) {
     next(error);
@@ -225,3 +233,5 @@ exports.getHolidays = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.calculateStatus = calculateStatus;

@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../context/AuthContext';
 import API from '../api/axios';
 import { formatDate, formatHours, getCompleteHistory } from '../utils/formatTime';
-import { Users, Calendar, BarChart3, Search, Trash2, X } from 'lucide-react';
+import { Users, User, Calendar, BarChart3, Search, Trash2, X, Edit, Eye } from 'lucide-react';
 import AttendanceCalendar from '../components/AttendanceCalendar';
+import UserAvatar from '../components/UserAvatar';
 
 const AdminPage = () => {
+  const { user: currentUser, loadUser } = useAuth();
   const [attendance, setAttendance] = useState([]);
   const [users, setUsers] = useState([]);
   const [deletedUsers, setDeletedUsers] = useState([]);
@@ -15,6 +18,7 @@ const AdminPage = () => {
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState('Employee');
+  const [newAvatar, setNewAvatar] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -40,7 +44,22 @@ const AdminPage = () => {
   // Modal states for user-specific calendar
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
   const [selectedUserForCalendar, setSelectedUserForCalendar] = useState(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedUserForView, setSelectedUserForView] = useState(null);
   const [selectedDateLog, setSelectedDateLog] = useState(null);
+  
+  // Profile editing states
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [selectedUserForProfile, setSelectedUserForProfile] = useState(null);
+  const [profileForm, setProfileForm] = useState({
+    employeeCode: '', designation: '', location: '', pan: '', sex: '', 
+    accountNumber: '', bankName: '', pfAccountNumber: '', pfUAN: '', 
+    esiNumber: '', joiningDate: '', leavingDate: '', taxRegime: '',
+    avatar: ''
+  });
+
+  // Edit payslip state
+  const [editingPayslipId, setEditingPayslipId] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -75,11 +94,17 @@ const AdminPage = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      await API.post('/admin/add-employee', { name: newName, email: newEmail, role: newRole });
+      await API.post('/admin/add-employee', { 
+        name: newName, 
+        email: newEmail, 
+        role: newRole,
+        avatar: newAvatar 
+      });
       setMessage({ type: 'success', text: 'Employee added successfully!' });
       setNewName('');
       setNewEmail('');
       setNewRole('Employee');
+      setNewAvatar('');
       fetchData(); // Refresh list
     } catch (err) {
       setMessage({
@@ -139,6 +164,54 @@ const AdminPage = () => {
     }
   };
 
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setFormLoading(true);
+    try {
+      await API.put(`/admin/update-profile/${selectedUserForProfile._id}`, profileForm);
+      setMessage({ type: 'success', text: 'Profile updated successfully!' });
+      setIsProfileModalOpen(false);
+      fetchData();
+      
+      // If updating own profile, refresh session
+      if (selectedUserForProfile._id === currentUser?._id) {
+        loadUser();
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to update profile' });
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const openProfileModal = (user) => {
+    setSelectedUserForProfile(user);
+    setProfileForm({
+      employeeCode: user.employeeCode || '',
+      designation: user.designation || '',
+      location: user.location || '',
+      pan: user.pan || '',
+      sex: user.sex || '',
+      accountNumber: user.accountNumber || '',
+      bankName: user.bankName || '',
+      pfAccountNumber: user.pfAccountNumber || '',
+      pfUAN: user.pfUAN || '',
+      esiNumber: user.esiNumber || '',
+      joiningDate: user.joiningDate || '',
+      leavingDate: user.leavingDate || '',
+      taxRegime: user.taxRegime || '',
+      casualLeaveBalance: user.casualLeaveBalance || 2,
+      sickLeaveBalance: user.sickLeaveBalance || 2,
+      avatar: user.avatar || '',
+    });
+    setIsProfileModalOpen(true);
+  };
+
+  const openViewModal = (user) => {
+    setSelectedUserForView(user);
+    setIsViewModalOpen(true);
+  };
+
   const handleDeleteHoliday = async (holidayId) => {
     if (!window.confirm('Delete this holiday?')) return;
     try {
@@ -186,12 +259,37 @@ const AdminPage = () => {
     setPayrollLoading(true);
     try {
       await API.post('/admin/generate-payslip', payrollForm);
-      setMessage({ type: 'success', text: 'Payslip generated successfully!' });
+      setMessage({ type: 'success', text: editingPayslipId ? 'Payslip updated successfully!' : 'Payslip generated successfully!' });
+      setEditingPayslipId(null); // Reset edit mode
       fetchData();
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to generate payslip' });
     } finally {
       setPayrollLoading(false);
+    }
+  };
+
+  const handleEditPayslip = (p) => {
+    setEditingPayslipId(p._id);
+    setPayrollForm({
+      userId: p.userId?._id || p.userId,
+      month: p.month,
+      year: p.year,
+      earnings: p.earnings.map(e => ({ label: e.label, total: e.total, amount: e.total })),
+      deductions: p.deductions.map(d => ({ label: d.label, total: d.total, amount: d.total }))
+    });
+    // Scroll to the form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeletePayslip = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this payslip record?')) return;
+    try {
+      await API.delete(`/admin/payslip/${id}`);
+      setMessage({ type: 'success', text: 'Payslip deleted successfully!' });
+      fetchData();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to delete payslip' });
     }
   };
 
@@ -308,15 +406,15 @@ const AdminPage = () => {
       return '--';
     }
 
+    // 1. ACTIVE status: If today, checked in AND not checked out (on the clock)
+    if (isToday && log.checkIn && !log.checkOut) return 'ACTIVE';
+
+    // 2. ABSENT status: No hours recorded for a past day or today (if not active)
     if (log.totalHours === 0) {
-      if (isToday) {
-        if (log.checkIn && !log.checkOut) return 'ACTIVE';
-        return '--';
-      }
-      return 'ABSENT';
+      return isToday ? '--' : 'ABSENT';
     }
-    // If status is empty (pending), show '--'. 
-    // This happens when the user has some hours but hasn't met the criteria for the day yet.
+
+    // 3. Status Display: Show the definitive status (Present/Absent/Leave) or pending (--)
     return log.status || '--';
   };
 
@@ -472,6 +570,18 @@ const AdminPage = () => {
                 <option value="Employee">Employee</option>
                 <option value="Admin">Admin</option>
               </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                Profile Photo URL (Optional)
+              </label>
+              <input
+                type="text"
+                className="input-field"
+                placeholder="https://example.com/photo.jpg"
+                value={newAvatar}
+                onChange={(e) => setNewAvatar(e.target.value)}
+              />
             </div>
             <button
               type="submit"
@@ -694,21 +804,54 @@ const AdminPage = () => {
                   {getFilteredAttendance().map((log) => (
                     <tr key={log._id}>
                       <td>
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{log.userId?.name || 'Unknown'}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                            {log.userId?.email || ''}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <UserAvatar user={log.userId} size="md" />
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{log.userId?.name || 'Unknown'}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {log.userId?.email || ''}
+                            </div>
                           </div>
                         </div>
                       </td>
                       <td>{formatDate(log.date)}</td>
-                      <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                        {log.checkIn ? new Date(log.checkIn).toLocaleTimeString() : '—'}
+                      <td style={{ verticalAlign: 'top', padding: '0.75rem 1rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          {log.workSessions && log.workSessions.length > 0 ? (
+                            log.workSessions.map((s, idx) => (
+                              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ fontSize: '0.6rem', padding: '0.05rem 0.25rem', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-indigo)', borderRadius: '0.2rem', fontWeight: 700 }}>S{idx + 1}</span>
+                                <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'white' }}>
+                                  {new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {log.checkIn ? new Date(log.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                        {log.checkOut ? new Date(log.checkOut).toLocaleTimeString() : '—'}
+                      <td style={{ verticalAlign: 'top', padding: '0.75rem 1rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          {log.workSessions && log.workSessions.length > 0 ? (
+                            log.workSessions.map((s, idx) => (
+                              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ fontSize: '0.6rem', padding: '0.05rem 0.25rem', background: 'rgba(244, 63, 94, 0.1)', color: 'var(--accent-rose)', borderRadius: '0.2rem', fontWeight: 700 }}>S{idx + 1}</span>
+                                <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'white' }}>
+                                  {s.endTime ? new Date(s.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Active'}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {log.checkIn && !log.checkOut ? 'Active' : (log.checkOut ? new Date(log.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td style={{ fontWeight: 600, color: 'var(--accent-indigo)' }}>
+                      <td style={{ fontWeight: 600, color: 'var(--accent-indigo)', verticalAlign: 'top' }}>
                         {formatHours(log.totalHours)}
                       </td>
                       <td>
@@ -741,6 +884,8 @@ const AdminPage = () => {
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
+                    <th>CL Bal</th>
+                    <th>SL Bal</th>
                     <th>Days Present</th>
                     <th>Joined</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
@@ -754,7 +899,12 @@ const AdminPage = () => {
                     )
                     .map((u) => (
                       <tr key={u._id}>
-                        <td style={{ fontWeight: 600 }}>{u.name}</td>
+                        <td style={{ fontWeight: 600 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <UserAvatar user={u} size="md" />
+                            {u.name}
+                          </div>
+                        </td>
                         <td>{u.email}</td>
                         <td>
                           <select
@@ -774,36 +924,82 @@ const AdminPage = () => {
                             <option value="Admin">Admin</option>
                           </select>
                         </td>
+                        <td style={{ fontWeight: 600, color: 'var(--accent-indigo)' }}>
+                          {u.casualLeaveBalance || 0}
+                        </td>
+                        <td style={{ fontWeight: 600, color: 'var(--accent-emerald)' }}>
+                          {u.sickLeaveBalance || 0}
+                        </td>
                         <td style={{ fontWeight: 700, color: 'var(--accent-emerald)' }}>
                           {getUserAttendanceCount(u._id)}
                         </td>
                         <td>{formatDate(u.createdAt)}</td>
                         <td style={{ textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                          <button
-                            onClick={() => {
-                              setSelectedUserForCalendar(u);
-                              setIsCalendarModalOpen(true);
-                              setSelectedDateLog(null);
-                            }}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: 'var(--accent-indigo)',
-                              cursor: 'pointer',
-                              padding: '0.5rem',
-                              borderRadius: '0.5rem',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.2s',
-                            }}
-                            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)'}
-                            onMouseOut={(e) => e.currentTarget.style.background = 'none'}
-                            title="View User Calendar"
-                          >
-                            <Calendar size={18} />
-                          </button>
+                            <button
+                              onClick={() => {
+                                setSelectedUserForCalendar(u);
+                                setIsCalendarModalOpen(true);
+                                setSelectedDateLog(null);
+                              }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--accent-indigo)',
+                                cursor: 'pointer',
+                                padding: '0.5rem',
+                                borderRadius: '0.5rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                              }}
+                              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)'}
+                              onMouseOut={(e) => e.currentTarget.style.background = 'none'}
+                              title="View User Calendar"
+                            >
+                              <Calendar size={18} />
+                            </button>
+                            <button
+                              onClick={() => openViewModal(u)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#22d3ee',
+                                cursor: 'pointer',
+                                padding: '0.5rem',
+                                borderRadius: '0.5rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                              }}
+                              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(34, 211, 238, 0.1)'}
+                              onMouseOut={(e) => e.currentTarget.style.background = 'none'}
+                              title="Detailed View"
+                            >
+                              <Eye size={18} />
+                            </button>
+                            <button
+                              onClick={() => openProfileModal(u)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--accent-emerald)',
+                                cursor: 'pointer',
+                                padding: '0.5rem',
+                                borderRadius: '0.5rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                              }}
+                              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)'}
+                              onMouseOut={(e) => e.currentTarget.style.background = 'none'}
+                              title="Edit Profile"
+                            >
+                              <User size={18} />
+                            </button>
                           <button
                             onClick={() => handleDeleteUser(u._id, u.name)}
                             style={{
@@ -865,7 +1061,12 @@ const AdminPage = () => {
                     )
                     .map((u) => (
                       <tr key={u._id}>
-                        <td style={{ fontWeight: 600 }}>{u.name}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <UserAvatar user={u} size="sm" />
+                            <div style={{ fontWeight: 600 }}>{u.name}</div>
+                          </div>
+                        </td>
                         <td>{u.email}</td>
                         <td style={{ color: 'var(--accent-indigo)', fontWeight: 600 }}>
                           {u.deletedBy?.name ? `deleted by- ${u.deletedBy.name}` : 'Unknown'}
@@ -907,10 +1108,13 @@ const AdminPage = () => {
                     .map((log) => (
                       <tr key={log._id}>
                         <td>
-                          <div>
-                            <div style={{ fontWeight: 600 }}>{log.userId?.name || 'Unknown'}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                              {log.userId?.email || ''}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <UserAvatar user={log.userId} size="sm" />
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{log.userId?.name || 'Unknown'}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                {log.userId?.email || ''}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -1059,6 +1263,7 @@ const AdminPage = () => {
             height: '100%',
             background: 'rgba(0, 0, 0, 0.7)',
             backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1096,7 +1301,7 @@ const AdminPage = () => {
               
               <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'white' }}>
-                  {selectedUserForCalendar.name}'s Performance
+                  {selectedUserForCalendar.name}'s Calender
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>
                   {selectedUserForCalendar.email}
@@ -1159,6 +1364,287 @@ const AdminPage = () => {
           </div>
         )}
 
+        {/* User Profile Modal */}
+        {isProfileModalOpen && selectedUserForProfile && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: '1rem',
+          }} onClick={() => setIsProfileModalOpen(false)}>
+            <div style={{
+              width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto',
+              position: 'relative', background: 'rgba(15, 23, 42, 0.95)',
+              borderRadius: '1.5rem', border: '1px solid rgba(255,255,255,0.1)',
+              padding: '2rem', animation: 'modalFadeIn 0.3s ease-out',
+            }} onClick={(e) => e.stopPropagation()}>
+              <button 
+                onClick={() => setIsProfileModalOpen(false)}
+                style={{
+                  position: 'absolute', top: '1.5rem', right: '1.5rem',
+                  width: '35px', height: '35px', borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.05)', color: 'white',
+                  border: 'none', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', cursor: 'pointer', zIndex: 2,
+                }}
+              >
+                <X size={20} />
+              </button>
+              
+              <div style={{ marginBottom: '2rem' }}>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', marginBottom: '0.5rem' }}>
+                  Edit Employee Profile
+                </h3>
+                <p style={{ color: 'var(--text-secondary)' }}>
+                  {selectedUserForProfile.name} ({selectedUserForProfile.email})
+                </p>
+              </div>
+
+              <form onSubmit={handleUpdateProfile}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                  <div>
+                    <label className="label-style">Employee Code</label>
+                    <input type="text" className="input-field" value={profileForm.employeeCode} onChange={(e) => setProfileForm({...profileForm, employeeCode: e.target.value})} placeholder="e.g. EMP001" />
+                  </div>
+                  <div>
+                    <label className="label-style">Designation</label>
+                    <input type="text" className="input-field" value={profileForm.designation} onChange={(e) => setProfileForm({...profileForm, designation: e.target.value})} placeholder="e.g. Software Engineer" />
+                  </div>
+                  <div>
+                    <label className="label-style">Location</label>
+                    <input type="text" className="input-field" value={profileForm.location} onChange={(e) => setProfileForm({...profileForm, location: e.target.value})} placeholder="e.g. New Delhi" />
+                  </div>
+                  <div>
+                    <label className="label-style">PAN Number</label>
+                    <input type="text" className="input-field" value={profileForm.pan} onChange={(e) => setProfileForm({...profileForm, pan: e.target.value})} placeholder="ABCDE1234F" />
+                  </div>
+                  <div>
+                    <label className="label-style">Sex</label>
+                    <select className="input-field" value={profileForm.sex} onChange={(e) => setProfileForm({...profileForm, sex: e.target.value})}>
+                      <option value="">Select</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label-style">Account Number</label>
+                    <input type="text" className="input-field" value={profileForm.accountNumber} onChange={(e) => setProfileForm({...profileForm, accountNumber: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="label-style">PF Account Number</label>
+                    <input type="text" className="input-field" value={profileForm.pfAccountNumber} onChange={(e) => setProfileForm({...profileForm, pfAccountNumber: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="label-style">PF UAN</label>
+                    <input type="text" className="input-field" value={profileForm.pfUAN} onChange={(e) => setProfileForm({...profileForm, pfUAN: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="label-style">ESI Number</label>
+                    <input type="text" className="input-field" value={profileForm.esiNumber} onChange={(e) => setProfileForm({...profileForm, esiNumber: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="label-style">Joining Date</label>
+                    <input type="date" className="input-field" value={profileForm.joiningDate} onChange={(e) => setProfileForm({...profileForm, joiningDate: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="label-style">Leaving Date</label>
+                    <input type="date" className="input-field" value={profileForm.leavingDate} onChange={(e) => setProfileForm({...profileForm, leavingDate: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="label-style">Tax Regime</label>
+                    <select className="input-field" value={profileForm.taxRegime} onChange={(e) => setProfileForm({...profileForm, taxRegime: e.target.value})}>
+                      <option value="">Select</option>
+                      <option value="Old">Old</option>
+                      <option value="New">New</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label-style">Profile Photo URL</label>
+                    <input type="text" className="input-field" value={profileForm.avatar} onChange={(e) => setProfileForm({...profileForm, avatar: e.target.value})} placeholder="https://example.com/photo.jpg" />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                  <div>
+                    <label className="label-style">Casual Leave Balance</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      value={profileForm.casualLeaveBalance}
+                      onChange={(e) => setProfileForm({ ...profileForm, casualLeaveBalance: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label-style">Sick Leave Balance</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      value={profileForm.sickLeaveBalance}
+                      onChange={(e) => setProfileForm({ ...profileForm, sickLeaveBalance: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2rem' }}>
+                  <button type="button" onClick={() => setIsProfileModalOpen(false)} className="btn-secondary" style={{ padding: '0.75rem 1.5rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'white', cursor: 'pointer' }}>Cancel</button>
+                  <button type="submit" className="btn-gradient" style={{ padding: '0.75rem 2rem' }} disabled={formLoading}>{formLoading ? 'Saving...' : 'Save Profile'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* User Detailed View Modal */}
+        {isViewModalOpen && selectedUserForView && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: '1rem',
+          }} onClick={() => setIsViewModalOpen(false)}>
+            <div style={{
+              width: '100%', maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto',
+              position: 'relative', background: 'rgba(15, 23, 42, 0.95)',
+              borderRadius: '1.5rem', border: '1px solid rgba(255,255,255,0.1)',
+              padding: '2.5rem', animation: 'modalFadeIn 0.3s ease-out',
+            }} onClick={(e) => e.stopPropagation()}>
+              <button 
+                onClick={() => setIsViewModalOpen(false)}
+                style={{
+                  position: 'absolute', top: '1.5rem', right: '1.5rem',
+                  width: '35px', height: '35px', borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.05)', color: 'white',
+                  border: 'none', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', cursor: 'pointer', zIndex: 2,
+                }}
+              >
+                <X size={20} />
+              </button>
+              
+              <div style={{ marginBottom: '2.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                <UserAvatar user={selectedUserForView} size="xl" />
+                <div>
+                  <h3 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'white', marginBottom: '0.25rem' }}>
+                    {selectedUserForView.name}
+                  </h3>
+                  <p style={{ color: 'var(--accent-indigo)', fontWeight: 500 }}>
+                    {selectedUserForView.designation || 'Specialist'} | {selectedUserForView.role}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
+                {/* Personal & Info */}
+                <div className="glass-card" style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-indigo)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <User size={16} /> Personal Identity
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Email Address</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.email}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>PAN Number</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem', textTransform: 'uppercase' }}>{selectedUserForView.pan || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Gender</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.sex || '--'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Employment */}
+                <div className="glass-card" style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-emerald)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Users size={16} /> Service Profile
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Employee Code</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.employeeCode || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Office Location</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.location || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Joining Date</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.joiningDate ? formatDate(selectedUserForView.joiningDate) : '--'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Banking & Finance */}
+                <div className="glass-card" style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fbbf24', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <BarChart3 size={16} /> Banking & Financials
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Bank Name</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.bankName || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Account Number</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.accountNumber || '--'}</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Tax Regime</label>
+                        <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.taxRegime || '--'}</span>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>ESI Number</label>
+                        <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.esiNumber || '--'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Statutory */}
+                <div className="glass-card" style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-rose)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <BarChart3 size={16} /> Statutory Accounts
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>PF UAN</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.pfUAN || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>PF Account Number</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.pfAccountNumber || '--'}</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>CL Balance</label>
+                        <span style={{ color: 'var(--accent-indigo)', fontWeight: 600 }}>{selectedUserForView.casualLeaveBalance || 0}</span>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>SL Balance</label>
+                        <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>{selectedUserForView.sickLeaveBalance || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '2.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button 
+                  onClick={() => setIsViewModalOpen(false)} 
+                  className="btn-secondary" 
+                  style={{ padding: '0.75rem 2rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Close Profile
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Leaves Tab */}
         {activeTab === 'leaves' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -1182,12 +1668,33 @@ const AdminPage = () => {
                     {leaves.filter(l => l.status === 'Pending').map((leave) => (
                       <tr key={leave._id}>
                         <td>
-                          <div style={{ fontWeight: 600 }}>{leave.userId?.name}</div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{leave.userId?.email}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <UserAvatar user={leave.userId} size="sm" />
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{leave.userId?.name}</div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{leave.userId?.email}</div>
+                            </div>
+                          </div>
                         </td>
                         <td>{leave.type}</td>
                         <td style={{ fontSize: '0.8rem' }}>{leave.startDate} to {leave.endDate}</td>
-                        <td style={{ maxWidth: '300px', fontSize: '0.8rem' }} title={leave.reason}>{leave.reason}</td>
+                        <td style={{ maxWidth: '300px', fontSize: '0.8rem' }} title={leave.reason}>
+                          {leave.reason}
+                          {(() => {
+                            const start = new Date(leave.startDate);
+                            const end = new Date(leave.endDate);
+                            const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+                            const balance = leave.type === 'Casual' ? leave.userId?.casualLeaveBalance : (leave.type === 'Sick' ? leave.userId?.sickLeaveBalance : 999);
+                            if (balance !== undefined && days > balance && (leave.type === 'Casual' || leave.type === 'Sick')) {
+                              return (
+                                <div style={{ color: 'var(--accent-rose)', fontSize: '0.7rem', marginTop: '0.25rem', fontWeight: 600 }}>
+                                  ⚠️ Low Balance: {days} days requested, {balance} available
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </td>
                         <td style={{ textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                             <button
@@ -1239,11 +1746,16 @@ const AdminPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {leaves.filter(l => l.status !== 'Pending').map((leave) => (
+                    {leaves.filter(l => (l.status === 'Approved' || l.status === 'Rejected')).map((leave) => (
                       <tr key={leave._id}>
                         <td>
-                          <div style={{ fontWeight: 600 }}>{leave.userId?.name}</div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{leave.userId?.email}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <UserAvatar user={leave.userId} size="sm" />
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{leave.userId?.name}</div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{leave.userId?.email}</div>
+                            </div>
+                          </div>
                         </td>
                         <td>{leave.type}</td>
                         <td style={{ fontSize: '0.8rem' }}>{leave.startDate} to {leave.endDate}</td>
@@ -1257,9 +1769,51 @@ const AdminPage = () => {
                         </td>
                       </tr>
                     ))}
-                    {leaves.filter(l => l.status !== 'Pending').length === 0 && (
+                    {leaves.filter(l => (l.status === 'Approved' || l.status === 'Rejected')).length === 0 && (
                       <tr>
-                        <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No history records.</td>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No leave history found.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Cancelled Requests Section */}
+            <div className="glass-card" style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-subtle)', background: 'rgba(244, 63, 94, 0.05)' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--accent-rose)' }}>Cancelled Requests</h3>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="logs-table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Type</th>
+                      <th>Dates</th>
+                      <th>Cancelled At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaves.filter(l => l.status === 'Cancelled').map((leave) => (
+                      <tr key={leave._id}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <UserAvatar user={leave.userId} size="sm" />
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{leave.userId?.name}</div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{leave.userId?.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>{leave.type}</td>
+                        <td style={{ fontSize: '0.8rem' }}>{leave.startDate} to {leave.endDate}</td>
+                        <td style={{ fontSize: '0.8rem' }}>{new Date(leave.processedAt || leave.appliedAt).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    {leaves.filter(l => l.status === 'Cancelled').length === 0 && (
+                      <tr>
+                        <td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No cancelled requests found.</td>
                       </tr>
                     )}
                   </tbody>
@@ -1274,7 +1828,24 @@ const AdminPage = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(400px, 1fr) 1fr', gap: '1.5rem', alignItems: 'start' }}>
             {/* Generate Payslip Form */}
             <div className="glass-card" style={{ padding: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem' }}>Generate Payslip</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 600 }}>{editingPayslipId ? 'Update Payslip' : 'Generate Payslip'}</h2>
+                {editingPayslipId && (
+                  <button 
+                    onClick={() => {
+                      setEditingPayslipId(null);
+                      setPayrollForm({
+                        userId: '', month: 'January', year: new Date().getFullYear(),
+                        earnings: [{ label: 'Basic Salary', total: 0 }],
+                        deductions: [{ label: 'Provident Fund', total: 0 }]
+                      });
+                    }}
+                    style={{ fontSize: '0.75rem', color: 'var(--accent-rose)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
               <form onSubmit={handleGeneratePayslip}>
                 {/* Employee Selection */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -1395,7 +1966,7 @@ const AdminPage = () => {
                 </div>
 
                 <button type="submit" className="btn-gradient" disabled={payrollLoading}>
-                  {payrollLoading ? 'Generating...' : 'Generate Payslip'}
+                  {payrollLoading ? (editingPayslipId ? 'Updating...' : 'Generating...') : (editingPayslipId ? 'Update Payslip' : 'Generate Payslip')}
                 </button>
               </form>
             </div>
@@ -1413,18 +1984,42 @@ const AdminPage = () => {
                       <th>Period</th>
                       <th>Net Pay</th>
                       <th>Generated At</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {payslips.map((p) => (
                       <tr key={p._id}>
                         <td>
-                          <div style={{ fontWeight: 600 }}>{p.userId?.name}</div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.userId?.email}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <UserAvatar user={p.userId} size="sm" />
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{p.userId?.name}</div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.userId?.email}</div>
+                            </div>
+                          </div>
                         </td>
                         <td>{p.month} {p.year}</td>
                         <td style={{ fontWeight: 700, color: 'var(--accent-indigo)' }}>₹{p.netPay.toLocaleString()}</td>
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{formatDate(p.createdAt)}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                            <button 
+                              onClick={() => handleEditPayslip(p)}
+                              style={{ padding: '0.4rem', borderRadius: '0.5rem', border: '1px solid rgba(99, 102, 241, 0.3)', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-indigo)', cursor: 'pointer' }}
+                              title="Edit Payslip"
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeletePayslip(p._id)}
+                              style={{ padding: '0.4rem', borderRadius: '0.5rem', border: '1px solid rgba(244, 63, 94, 0.3)', background: 'rgba(244, 63, 94, 0.1)', color: 'var(--accent-rose)', cursor: 'pointer' }}
+                              title="Delete Payslip"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                     {payslips.length === 0 && (

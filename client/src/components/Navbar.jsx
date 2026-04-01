@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { LogOut, Clock, Shield, User, Menu, X } from 'lucide-react';
+import UserAvatar from './UserAvatar';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -120,23 +121,12 @@ const Navbar = () => {
           }} />
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.05)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '1px solid var(--border-subtle)'
-              }}>
-                <User size={16} color="var(--text-secondary)" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <UserAvatar user={user} size="md" />
+                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {user?.name?.split(' ')[0]}
+                </span>
               </div>
-              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                {user?.name?.split(' ')[0]}
-              </span>
-            </div>
             <button
               onClick={handleLogout}
               className="btn-icon"
@@ -185,6 +175,7 @@ const Navbar = () => {
           bottom: 0,
           background: 'rgba(15, 23, 42, 0.95)',
           backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
           padding: '2rem 1.5rem',
           display: 'flex',
           flexDirection: 'column',
@@ -195,17 +186,7 @@ const Navbar = () => {
           <NavLinks />
           <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '0.5rem 0' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem' }}>
-            <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--accent-indigo), var(--accent-violet))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <User size={20} color="white" />
-            </div>
+            <UserAvatar user={user} size="lg" />
             <div>
               <p style={{ fontSize: '0.875rem', fontWeight: 600 }}>{user?.name}</p>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{user?.role}</p>
@@ -242,5 +223,8 @@ const Navbar = () => {
     </>
   );
 };
+
+/* Navbar specific styles moved to index.css or added here if preferred */
+
 
 export default Navbar;

@@ -5,8 +5,10 @@ const passport = require('passport');
 const helmet = require('helmet');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
+const initMidnightCron = require('./services/midnightCron');
 
 // Load env vars
+dotenv.config({ path: '.env.local' });
 dotenv.config();
 
 // Diagnostic: Check for required env vars in production
@@ -88,6 +90,8 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+  // Start midnight automation
+  initMidnightCron();
 });
 
 // Self-pinger to keep the server awake on Render (Free Tier)

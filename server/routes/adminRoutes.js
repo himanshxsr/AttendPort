@@ -11,9 +11,10 @@ const {
   addHoliday,
   deleteHoliday,
   markManualAttendance,
+  updateUserProfile,
 } = require('../controllers/adminController');
 const { getAllLeaves, updateLeaveStatus } = require('../controllers/leaveController');
-const { adminGeneratePayslip, adminGetAllPayslips } = require('../controllers/payslipController');
+const { adminGeneratePayslip, adminGetAllPayslips, adminDeletePayslip } = require('../controllers/payslipController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
 // Middleware to ensure user is admin
@@ -25,6 +26,7 @@ router.get('/users', getAllUsers);
 router.get('/deleted-users', getDeletedUsers);
 router.post('/add-employee', addEmployee);
 router.put('/update-role/:id', updateUserRole);
+router.put('/update-profile/:id', updateUserProfile);
 router.delete('/user/:id', softDeleteUser);
 
 // Holiday routes
@@ -42,5 +44,6 @@ router.put('/update-leave/:id', updateLeaveStatus);
 // Payroll (Admin)
 router.post('/generate-payslip', adminGeneratePayslip);
 router.get('/all-payslips', adminGetAllPayslips);
+router.delete('/payslip/:id', adminDeletePayslip);
 
 module.exports = router;

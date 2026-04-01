@@ -56,8 +56,9 @@ const AttendanceCalendar = ({ logs, holidays, onDateClick }) => {
       }
 
       const dDate = new Date(year, month, d);
-      const isToday = dateStr === new Date().toISOString().split('T')[0];
-      const isFuture = dDate > new Date(); // Simplified for timing
+      const todayLocalStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+      const isToday = dateStr === todayLocalStr;
+      const isFuture = dDate > new Date() && !isToday;
 
       calendarDays.push({
         day: d,

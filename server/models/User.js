@@ -25,6 +25,33 @@ const userSchema = new mongoose.Schema({
     enum: ['Admin', 'Employee'],
     default: 'Employee',
   },
+  // Profile fields for automated payslips
+  employeeCode: { type: String, unique: true, sparse: true },
+  designation: { type: String },
+  location: { type: String },
+  pan: { type: String },
+  sex: { type: String },
+  accountNumber: { type: String },
+  bankName: { type: String },
+  pfAccountNumber: { type: String },
+  pfUAN: { type: String },
+  esiNumber: { type: String },
+  joiningDate: { type: String },
+  leavingDate: { type: String },
+  taxRegime: { type: String },
+  // Leave Balances
+  casualLeaveBalance: {
+    type: Number,
+    default: 2, // New users start with 2
+  },
+  sickLeaveBalance: {
+    type: Number,
+    default: 2, // New users start with 2
+  },
+  lastLeaveAccrualDate: {
+    type: String,
+    default: '2026-04', // Set to current month for initialization
+  },
   isDeleted: {
     type: Boolean,
     default: false,
