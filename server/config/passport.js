@@ -50,7 +50,9 @@ module.exports = function(passport) {
             }
             // If user exists, update their Google ID and Avatar if not present
             user.googleId = profile.id;
-            user.avatar = profile.photos[0].value;
+            if (!user.avatar) {
+              user.avatar = profile.photos[0].value;
+            }
             await user.save();
             return done(null, user);
           } else {
