@@ -435,7 +435,8 @@ const AdminPage = () => {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          height: 'calc(100vh - 64px)',
+          height: 'calc(100vh - 72px)',
+          paddingTop: '2.5rem',
         }}>
           <div className="spinner"></div>
         </div>
@@ -449,7 +450,7 @@ const AdminPage = () => {
       <div style={{
         maxWidth: '1200px',
         margin: '0 auto',
-        padding: '1.5rem 1rem',
+        padding: '2.5rem 1rem 4rem',
       }}>
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>

@@ -184,7 +184,8 @@ const DashboardPage = () => {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          height: 'calc(100vh - 64px)',
+          height: 'calc(100vh - 72px)',
+          paddingTop: '2.5rem',
         }}>
           <div className="spinner"></div>
         </div>
@@ -198,7 +199,7 @@ const DashboardPage = () => {
       <div style={{
         maxWidth: '1200px',
         margin: '0 auto',
-        padding: '1.5rem 1rem',
+        padding: '2.5rem 1rem 4rem',
       }}>
         {/* Welcome Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '2rem' }}>
