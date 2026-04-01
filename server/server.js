@@ -25,19 +25,29 @@ if (missingEnv.length > 0) {
 // Connect to database
 connectDB();
 
-// Temporary Promotion: Promote himanshu@elisium.net to Admin
+// Temporary Promotion & Name Update: Setup himanshu@elisium.net for production
 const User = require('./models/User');
 setTimeout(async () => {
   try {
     const adminEmail = 'himanshu@elisium.net';
     const user = await User.findOne({ email: adminEmail });
-    if (user && user.role !== 'Admin') {
-      user.role = 'Admin';
-      await user.save();
-      console.log(`✅ AUTO-PROMOTED: ${adminEmail} is now an Admin.`);
+    if (user) {
+      let updated = false;
+      if (user.role !== 'Admin') {
+        user.role = 'Admin';
+        updated = true;
+      }
+      if (user.name !== 'Himanshu Aashish') {
+        user.name = 'Himanshu Aashish';
+        updated = true;
+      }
+      if (updated) {
+        await user.save();
+        console.log(`✅ AUTO-UPDATED: ${adminEmail} is now 'Admin' and named 'Himanshu Aashish'.`);
+      }
     }
   } catch (err) {
-    console.error('Promotion error:', err.message);
+    console.error('Startup update error:', err.message);
   }
 }, 5000);
 
