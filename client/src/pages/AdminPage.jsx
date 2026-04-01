@@ -315,7 +315,9 @@ const AdminPage = () => {
       }
       return 'ABSENT';
     }
-    return log.status || 'PRESENT';
+    // If status is empty (pending), show '--'. 
+    // This happens when the user has some hours but hasn't met the criteria for the day yet.
+    return log.status || '--';
   };
 
   const getStatusClass = (log) => {
@@ -324,7 +326,7 @@ const AdminPage = () => {
     if (status === 'ABSENT') return 'absent';
     if (status === 'HOLIDAY') return 'holiday';
     if (status === 'ACTIVE') return 'present'; // Use present color for active
-    return log.status?.toLowerCase() || 'present';
+    return log.status?.toLowerCase() || 'none';
   };
 
   if (loading && attendance.length === 0) {

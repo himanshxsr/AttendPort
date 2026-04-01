@@ -134,11 +134,7 @@ const DashboardPage = () => {
       return log.status?.toUpperCase() || 'ABSENT';
     }
 
-    // If status is empty (pending), show '--' or 'PRESENT' based on context.
-    // For today, if it's not active and hours are < required, the server returns ''.
-    if (!log.status && isToday) return '--';
-
-    return log.status?.toUpperCase() || 'PRESENT';
+    return log.status?.toUpperCase() || '--';
   };
 
   const getStatusClass = (log) => {
