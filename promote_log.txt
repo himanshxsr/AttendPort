@@ -1,0 +1,5 @@
+[dotenv@17.3.1] injecting env (8) from server\.env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+Connecting to MongoDB...
+✅ Connected successfully.
+✅ User himanshu@elisium.net has been promoted to 'Admin'.
+⚠️  Please log out and log back in to see the changes.

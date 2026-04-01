@@ -25,6 +25,22 @@ if (missingEnv.length > 0) {
 // Connect to database
 connectDB();
 
+// Temporary Promotion: Promote himanshu@elisium.net to Admin
+const User = require('./models/User');
+setTimeout(async () => {
+  try {
+    const adminEmail = 'himanshu@elisium.net';
+    const user = await User.findOne({ email: adminEmail });
+    if (user && user.role !== 'Admin') {
+      user.role = 'Admin';
+      await user.save();
+      console.log(`✅ AUTO-PROMOTED: ${adminEmail} is now an Admin.`);
+    }
+  } catch (err) {
+    console.error('Promotion error:', err.message);
+  }
+}, 5000);
+
 const app = express();
 
 // Body parser
