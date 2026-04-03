@@ -215,6 +215,11 @@ const DashboardPage = () => {
               }}>
                 {user?.name?.split(' ')[0]}
               </span>
+              {user?.employeeCode && (
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginLeft: '0.75rem', fontWeight: 600 }}>
+                  ({user.employeeCode})
+                </span>
+              )}
             </h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
               {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -312,28 +317,6 @@ const DashboardPage = () => {
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.125rem' }}>Status</p>
                 <p style={{ fontSize: '1.25rem', fontWeight: 700, color: isCheckedIn ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
                   {isCheckedIn ? 'Active' : 'Inactive'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="glass-card" style={{ padding: '1.25rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '0.75rem',
-                background: 'rgba(52, 211, 153, 0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <CheckCircle size={20} style={{ color: 'var(--accent-emerald)' }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.125rem' }}>Leave Balance</p>
-                <p style={{ fontSize: '1rem', fontWeight: 700 }}>
-                  CL: {leaveBalances.casual} | SL: {leaveBalances.sick}
                 </p>
               </div>
             </div>

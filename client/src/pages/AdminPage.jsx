@@ -3,7 +3,7 @@ import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import API from '../api/axios';
 import { formatDate, formatHours, getCompleteHistory } from '../utils/formatTime';
-import { Users, User, Calendar, BarChart3, Search, Trash2, X, Edit, Eye } from 'lucide-react';
+import { Users, User, Calendar, BarChart3, Search, Trash2, X, Edit, Eye, Phone, Activity } from 'lucide-react';
 import AttendanceCalendar from '../components/AttendanceCalendar';
 import UserAvatar from '../components/UserAvatar';
 
@@ -38,7 +38,8 @@ const AdminPage = () => {
     ],
     deductions: [
       { label: 'Provident Fund', total: 0 }
-    ]
+    ],
+    salaryCreditedDate: new Date().toISOString().split('T')[0]
   });
   
   // Modal states for user-specific calendar
@@ -203,6 +204,8 @@ const AdminPage = () => {
       casualLeaveBalance: user.casualLeaveBalance || 2,
       sickLeaveBalance: user.sickLeaveBalance || 2,
       avatar: user.avatar || '',
+      emergencyContact: user.emergencyContact || '',
+      bloodGroup: user.bloodGroup || '',
     });
     setIsProfileModalOpen(true);
   };
@@ -276,7 +279,8 @@ const AdminPage = () => {
       month: p.month,
       year: p.year,
       earnings: p.earnings.map(e => ({ label: e.label, total: e.total, amount: e.total })),
-      deductions: p.deductions.map(d => ({ label: d.label, total: d.total, amount: d.total }))
+      deductions: p.deductions.map(d => ({ label: d.label, total: d.total, amount: d.total })),
+      salaryCreditedDate: p.employeeDetails?.salaryCreditedDate || ''
     });
     // Scroll to the form
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -883,6 +887,7 @@ const AdminPage = () => {
                 <thead>
                   <tr>
                     <th>Name</th>
+                    <th>EMP NO</th>
                     <th>Email</th>
                     <th>Role</th>
                     <th>CL Bal</th>
@@ -905,6 +910,9 @@ const AdminPage = () => {
                             <UserAvatar user={u} size="md" />
                             {u.name}
                           </div>
+                        </td>
+                        <td style={{ fontWeight: 700, color: 'var(--accent-indigo)' }}>
+                          {u.employeeCode || '--'}
                         </td>
                         <td>{u.email}</td>
                         <td>
@@ -1239,6 +1247,7 @@ const AdminPage = () => {
                   >
                     <option value="Present">Present</option>
                     <option value="Absent">Absent</option>
+                    <option value="Leave">On Leave</option>
                   </select>
                 </div>
               </div>
@@ -1464,6 +1473,24 @@ const AdminPage = () => {
                     <label className="label-style">Profile Photo URL</label>
                     <input type="text" className="input-field" value={profileForm.avatar} onChange={(e) => setProfileForm({...profileForm, avatar: e.target.value})} placeholder="https://example.com/photo.jpg" />
                   </div>
+                  <div>
+                    <label className="label-style">Emergency Contact</label>
+                    <input type="text" className="input-field" value={profileForm.emergencyContact} onChange={(e) => setProfileForm({...profileForm, emergencyContact: e.target.value})} placeholder="+91 9876543210" />
+                  </div>
+                  <div>
+                    <label className="label-style">Blood Group</label>
+                    <select className="input-field" value={profileForm.bloodGroup} onChange={(e) => setProfileForm({...profileForm, bloodGroup: e.target.value})}>
+                      <option value="">Select Blood Group</option>
+                      <option value="A+">A+</option>
+                      <option value="A-">A-</option>
+                      <option value="B+">B+</option>
+                      <option value="B-">B-</option>
+                      <option value="O+">O+</option>
+                      <option value="O-">O-</option>
+                      <option value="AB+">AB+</option>
+                      <option value="AB-">AB-</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -1553,6 +1580,14 @@ const AdminPage = () => {
                     <div>
                       <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Gender</label>
                       <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.sex || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Emergency Contact</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.emergencyContact || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Blood Group</label>
+                      <span style={{ color: 'var(--accent-rose)', fontSize: '0.9rem', fontWeight: 'bold' }}>{selectedUserForView.bloodGroup || '--'}</span>
                     </div>
                   </div>
                 </div>
@@ -1885,6 +1920,16 @@ const AdminPage = () => {
                       value={payrollForm.year}
                       onChange={(e) => setPayrollForm({...payrollForm, year: e.target.value})}
                       required 
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Credit Date</label>
+                    <input 
+                      type="date" 
+                      className="input-field" 
+                      value={payrollForm.salaryCreditedDate}
+                      onChange={(e) => setPayrollForm({...payrollForm, salaryCreditedDate: e.target.value})}
+                      style={{ padding: '0.5rem' }}
                     />
                   </div>
                 </div>

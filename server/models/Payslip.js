@@ -27,6 +27,7 @@ const payslipSchema = new mongoose.Schema({
     leavingDate: String,
     esiNumber: String,
     taxRegime: String,
+    salaryCreditedDate: String,
   },
   attendanceSummary: {
     payDays: { type: Number, default: 0 },

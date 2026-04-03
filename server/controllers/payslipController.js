@@ -35,8 +35,14 @@ exports.adminGeneratePayslip = async (req, res, next) => {
           esiNumber: user.esiNumber,
           taxRegime: user.taxRegime,
           employeeCode: user.employeeCode,
+          salaryCreditedDate: req.body.employeeDetails?.salaryCreditedDate || '',
         };
       }
+    }
+
+    // Capture salaryCreditedDate if provided explicitly in the body
+    if (req.body.salaryCreditedDate && employeeDetails) {
+      employeeDetails.salaryCreditedDate = req.body.salaryCreditedDate;
     }
 
     // Calculate totals automatically

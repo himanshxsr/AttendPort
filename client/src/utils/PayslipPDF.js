@@ -80,7 +80,7 @@ export const generatePayslipPDF = (user, payslip, liveBalances = null) => {
     ['Location', user?.location || details.location || '', 'PF Account Number', user?.pfAccountNumber || details.pfAccountNumber || ''],
     ['Joining Date', user?.joiningDate || details.joiningDate || '', 'PF UAN', user?.pfUAN || details.pfUan || ''],
     ['Leaving Date', user?.leavingDate || details.leavingDate || '', 'ESI Number', user?.esiNumber || details.esiNumber || ''],
-    ['Tax Regime', user?.taxRegime || details.taxRegime || '', '', '']
+    ['Tax Regime', user?.taxRegime || details.taxRegime || '', 'Salary Credited date', user?.salaryCreditedDate || details.salaryCreditedDate || '']
   ];
 
   autoTable(doc, {

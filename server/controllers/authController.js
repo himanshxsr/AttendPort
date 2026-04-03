@@ -38,6 +38,10 @@ exports.register = async (req, res, next) => {
           leavingDate: userExists.leavingDate,
           taxRegime: userExists.taxRegime,
           avatar: userExists.avatar,
+          emergencyContact: userExists.emergencyContact,
+          bloodGroup: userExists.bloodGroup,
+          casualLeaveBalance: userExists.casualLeaveBalance ?? 2,
+          sickLeaveBalance: userExists.sickLeaveBalance ?? 2,
           token: generateToken(userExists._id),
         });
       }
@@ -70,6 +74,10 @@ exports.register = async (req, res, next) => {
         leavingDate: user.leavingDate,
         taxRegime: user.taxRegime,
         avatar: user.avatar,
+        emergencyContact: user.emergencyContact,
+        bloodGroup: user.bloodGroup,
+        casualLeaveBalance: user.casualLeaveBalance ?? 2,
+        sickLeaveBalance: user.sickLeaveBalance ?? 2,
         token: generateToken(user._id),
       });
     } else {
@@ -123,6 +131,8 @@ exports.login = async (req, res, next) => {
         leavingDate: user.leavingDate,
         taxRegime: user.taxRegime,
         avatar: user.avatar,
+        casualLeaveBalance: user.casualLeaveBalance ?? 2,
+        sickLeaveBalance: user.sickLeaveBalance ?? 2,
         token: generateToken(user._id),
       });
     } else {
@@ -163,6 +173,10 @@ exports.getMe = async (req, res, next) => {
         leavingDate: user.leavingDate,
         taxRegime: user.taxRegime,
         avatar: user.avatar,
+        emergencyContact: user.emergencyContact,
+        bloodGroup: user.bloodGroup,
+        casualLeaveBalance: user.casualLeaveBalance ?? 2,
+        sickLeaveBalance: user.sickLeaveBalance ?? 2,
       });
     } else {
       res.status(404).json({ message: 'User not found' });

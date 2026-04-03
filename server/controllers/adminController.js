@@ -3,16 +3,20 @@ const Attendance = require('../models/Attendance');
 const WorkSession = require('../models/WorkSession');
 const Holiday = require('../models/Holiday');
 
-// Helper to generate a unique 4-digit employee code
+// Helper to generate a unique sequential employee code (EMP001, EMP002, ...)
 const generateUniqueEmployeeCode = async () => {
-  let isUnique = false;
-  let code;
-  while (!isUnique) {
-    code = Math.floor(1000 + Math.random() * 9000).toString();
-    const exists = await User.exists({ employeeCode: code });
-    if (!exists) isUnique = true;
+  const lastUser = await User.findOne({ 
+    employeeCode: { $regex: /^EMP\d{3,}/ } 
+  }).sort({ employeeCode: -1 });
+
+  if (!lastUser || !lastUser.employeeCode) {
+    return 'EMP001';
   }
-  return code;
+
+  const lastCode = lastUser.employeeCode;
+  const lastNum = parseInt(lastCode.replace('EMP', ''));
+  const nextNum = (lastNum + 1).toString().padStart(3, '0');
+  return `EMP${nextNum}`;
 };
 
 // @desc    Get all attendance logs (Admin)
@@ -234,8 +238,8 @@ exports.markManualAttendance = async (req, res, next) => {
         date,
         status: status || 'Present',
         totalHours: status === 'Present' ? 9 : 0,
-        checkIn: new Date(`${date}T09:00:00`), // Dummy check-in
-        checkOut: new Date(`${date}T18:00:00`), // Dummy check-out
+        checkIn: status === 'Present' ? new Date(`${date}T09:00:00`) : null,
+        checkOut: status === 'Present' ? new Date(`${date}T18:00:00`) : null,
       });
     }
     res.json(attendance);
@@ -259,7 +263,8 @@ exports.updateUserProfile = async (req, res, next) => {
       'employeeCode', 'designation', 'location', 'pan', 'sex', 
       'accountNumber', 'bankName', 'pfAccountNumber', 'pfUAN', 
       'esiNumber', 'joiningDate', 'leavingDate', 'taxRegime',
-      'casualLeaveBalance', 'sickLeaveBalance', 'avatar'
+      'casualLeaveBalance', 'sickLeaveBalance', 'avatar',
+      'emergencyContact', 'bloodGroup'
     ];
 
     profileFields.forEach(field => {

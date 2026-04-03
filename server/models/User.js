@@ -39,6 +39,8 @@ const userSchema = new mongoose.Schema({
   joiningDate: { type: String },
   leavingDate: { type: String },
   taxRegime: { type: String },
+  emergencyContact: { type: String },
+  bloodGroup: { type: String },
   // Leave Balances
   casualLeaveBalance: {
     type: Number,
