@@ -45,6 +45,10 @@ exports.applyLeave = async (req, res, next) => {
       return res.status(400).json({ message: 'Start date cannot be after end date' });
     }
 
+    if (type === 'Half Day (Casual)' && startDate !== endDate) {
+      return res.status(400).json({ message: 'Half Day leave must be on a single date' });
+    }
+
     const leave = await Leave.create({
       userId: req.user._id,
       type,
@@ -121,10 +125,13 @@ exports.updateLeaveStatus = async (req, res, next) => {
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const dateStr = d.toISOString().split('T')[0];
         
-        // Upsert attendance record for each day in range to mark as 'Leave'
+        // Upsert attendance record for each day in range to mark as 'Leave' or 'Half Day'
         await Attendance.findOneAndUpdate(
           { userId: leave.userId, date: dateStr },
-          { status: 'Leave', totalHours: 0 },
+          { 
+            status: leave.type === 'Half Day (Casual)' ? 'Half Day' : 'Leave', 
+            totalHours: leave.type === 'Half Day (Casual)' ? 4.5 : 0 
+          },
           { upsert: true, new: true }
         );
       }
@@ -135,6 +142,8 @@ exports.updateLeaveStatus = async (req, res, next) => {
         const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
         if (leave.type === 'Casual') {
           user.casualLeaveBalance = Math.max(0, user.casualLeaveBalance - days);
+        } else if (leave.type === 'Half Day (Casual)') {
+          user.casualLeaveBalance = Math.max(0, user.casualLeaveBalance - (days * 0.5));
         } else if (leave.type === 'Sick') {
           user.sickLeaveBalance = Math.max(0, user.sickLeaveBalance - days);
         }
@@ -194,6 +203,8 @@ exports.cancelLeave = async (req, res, next) => {
       if (user) {
         if (leave.type === 'Casual') {
           user.casualLeaveBalance += days;
+        } else if (leave.type === 'Half Day (Casual)') {
+          user.casualLeaveBalance += (days * 0.5);
         } else if (leave.type === 'Sick') {
           user.sickLeaveBalance += days;
         }
@@ -204,7 +215,8 @@ exports.cancelLeave = async (req, res, next) => {
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const dateStr = d.toISOString().split('T')[0];
         // Delete the 'Leave' entry for this user on this date
-        await Attendance.findOneAndDelete({ userId: leave.userId, date: dateStr, status: 'Leave' });
+        const statusToRemove = leave.type === 'Half Day (Casual)' ? 'Half Day' : 'Leave';
+        await Attendance.findOneAndDelete({ userId: leave.userId, date: dateStr, status: statusToRemove });
       }
     }
 

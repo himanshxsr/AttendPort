@@ -515,20 +515,28 @@ const DashboardPage = () => {
                   <select 
                     className="input-field" 
                     value={leaveForm.type}
-                    onChange={(e) => setLeaveForm({...leaveForm, type: e.target.value})}
+                    onChange={(e) => {
+                      const newType = e.target.value;
+                      if (newType === 'Half Day (Casual)') {
+                        setLeaveForm({...leaveForm, type: newType, endDate: leaveForm.startDate});
+                      } else {
+                        setLeaveForm({...leaveForm, type: newType});
+                      }
+                    }}
                     required
                   >
                     <option value="Sick">Sick Leave</option>
                     <option value="Casual">Casual Leave</option>
+                    <option value="Half Day (Casual)">Half Day (Casual)</option>
                     <option value="Medical">Medical Leave</option>
                     <option value="Other">Other</option>
                   </select>
-                  {((leaveForm.type === 'Casual' && leaveBalances.casual === 0) || 
-                    (leaveForm.type === 'Sick' && leaveBalances.sick === 0)) && (
+                  {((leaveForm.type === 'Casual' || leaveForm.type === 'Half Day (Casual)') && leaveBalances.casual === 0) || 
+                    (leaveForm.type === 'Sick' && leaveBalances.sick === 0) ? (
                     <p style={{ color: 'var(--accent-rose)', fontSize: '0.75rem', marginTop: '0.5rem', fontWeight: 500 }}>
                       ⚠️ You have 0 balance for this leave type. This may be treated as Unpaid Leave.
                     </p>
-                  )}
+                  ) : null}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
                   <div>
@@ -537,20 +545,29 @@ const DashboardPage = () => {
                       type="date" 
                       className="input-field" 
                       value={leaveForm.startDate}
-                      onChange={(e) => setLeaveForm({...leaveForm, startDate: e.target.value})}
+                      onChange={(e) => {
+                        const newStartDate = e.target.value;
+                        if (leaveForm.type === 'Half Day (Casual)') {
+                           setLeaveForm({...leaveForm, startDate: newStartDate, endDate: newStartDate});
+                        } else {
+                           setLeaveForm({...leaveForm, startDate: newStartDate});
+                        }
+                      }}
                       required 
                     />
                   </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>End Date</label>
-                    <input 
-                      type="date" 
-                      className="input-field" 
-                      value={leaveForm.endDate}
-                      onChange={(e) => setLeaveForm({...leaveForm, endDate: e.target.value})}
-                      required 
-                    />
-                  </div>
+                  {leaveForm.type !== 'Half Day (Casual)' && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>End Date</label>
+                      <input 
+                        type="date" 
+                        className="input-field" 
+                        value={leaveForm.endDate}
+                        onChange={(e) => setLeaveForm({...leaveForm, endDate: e.target.value})}
+                        required 
+                      />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Reason</label>

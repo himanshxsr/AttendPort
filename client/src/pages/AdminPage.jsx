@@ -1246,6 +1246,7 @@ const AdminPage = () => {
                     onChange={(e) => setManualEntry({ ...manualEntry, status: e.target.value })}
                   >
                     <option value="Present">Present</option>
+                    <option value="Half Day">Half Day</option>
                     <option value="Absent">Absent</option>
                     <option value="Leave">On Leave</option>
                   </select>
@@ -1498,18 +1499,20 @@ const AdminPage = () => {
                     <label className="label-style">Casual Leave Balance</label>
                     <input
                       type="number"
+                      step="0.5"
                       className="input-field"
                       value={profileForm.casualLeaveBalance}
-                      onChange={(e) => setProfileForm({ ...profileForm, casualLeaveBalance: parseInt(e.target.value) || 0 })}
+                      onChange={(e) => setProfileForm({ ...profileForm, casualLeaveBalance: parseFloat(e.target.value) || 0 })}
                     />
                   </div>
                   <div>
                     <label className="label-style">Sick Leave Balance</label>
                     <input
                       type="number"
+                      step="0.5"
                       className="input-field"
                       value={profileForm.sickLeaveBalance}
-                      onChange={(e) => setProfileForm({ ...profileForm, sickLeaveBalance: parseInt(e.target.value) || 0 })}
+                      onChange={(e) => setProfileForm({ ...profileForm, sickLeaveBalance: parseFloat(e.target.value) || 0 })}
                     />
                   </div>
                 </div>

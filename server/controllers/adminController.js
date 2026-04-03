@@ -228,20 +228,53 @@ exports.markManualAttendance = async (req, res, next) => {
   const { userId, date, status } = req.body;
   try {
     let attendance = await Attendance.findOne({ userId, date });
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const newStatus = status || 'Present';
+    let targetDeduction = 0;
+    if (newStatus === 'Absent' || newStatus === 'Leave') targetDeduction = 1;
+    if (newStatus === 'Half Day') targetDeduction = 0.5;
+
+    let previousDeductionRefund = 0;
+    
     if (attendance) {
-      attendance.status = status || 'Present';
-      attendance.totalHours = status === 'Present' ? 9 : 0; // Default to full day if present
-      await attendance.save();
+      previousDeductionRefund = attendance.leaveDeducted || 0;
+      attendance.status = newStatus;
+      attendance.totalHours = newStatus === 'Present' ? 9 : (newStatus === 'Half Day' ? 4.5 : 0);
     } else {
-      attendance = await Attendance.create({
+      attendance = new Attendance({
         userId,
         date,
-        status: status || 'Present',
-        totalHours: status === 'Present' ? 9 : 0,
-        checkIn: status === 'Present' ? new Date(`${date}T09:00:00`) : null,
-        checkOut: status === 'Present' ? new Date(`${date}T18:00:00`) : null,
+        status: newStatus,
+        totalHours: newStatus === 'Present' ? 9 : (newStatus === 'Half Day' ? 4.5 : 0),
+        checkIn: newStatus === 'Present' ? new Date(`${date}T09:00:00`) : null,
+        checkOut: newStatus === 'Present' ? new Date(`${date}T18:00:00`) : null,
+        leaveDeducted: 0
       });
     }
+
+    // Refund their previous deduction (if we are overwriting a past manual entry)
+    let currentBalance = (user.casualLeaveBalance || 0) + previousDeductionRefund;
+
+    // Determine actual amount we CAN deduct without going below 0
+    let actualDeduction = 0;
+    if (currentBalance >= targetDeduction) {
+      actualDeduction = targetDeduction;
+    } else {
+      actualDeduction = currentBalance; // Take whatever is left (could be 0)
+    }
+
+    // Update the attendance record with what we ACTUALLY took
+    attendance.leaveDeducted = actualDeduction;
+    await attendance.save();
+
+    // Update the user's balance
+    user.casualLeaveBalance = currentBalance - actualDeduction;
+    await user.save();
+
     res.json(attendance);
   } catch (error) {
     next(error);
