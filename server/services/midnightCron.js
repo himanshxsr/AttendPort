@@ -72,15 +72,19 @@ const initMidnightCron = () => {
           }
           
           await attendance.save();
+          // Sync leave balance for finalized existing records
+          await require('../controllers/attendanceController').syncLeaveBalance(user._id, attendance._id);
         } else {
           // If no record exists, and it's NOT a holiday/weekend, mark as Absent
           if (!isWeekend && !holiday) {
-            await Attendance.create({
+            const newAttendance = await Attendance.create({
               userId: user._id,
               date: dateStr,
               status: 'Absent',
               totalHours: 0
             });
+            // Sync leave balance for new automated Absent records
+            await require('../controllers/attendanceController').syncLeaveBalance(user._id, newAttendance._id);
           }
         }
       }

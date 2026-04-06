@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
+const { calculateStatus, syncLeaveBalance } = require('../controllers/attendanceController');
 require('dotenv').config({ path: './server/.env' });
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://himanshu:ElisiumSpace@cluster0.qutmnik.mongodb.net/attendance-portal?retryWrites=true&w=majority&appName=Cluster0';
@@ -10,42 +11,32 @@ async function syncLeaves() {
     await mongoose.connect(MONGO_URI);
     console.log('Connected to MongoDB');
 
-    // Find all attendance records that are marked as Absent or Half Day 
-    // where leaveDeducted is not set or 0
+    // Specify the range we want to fix (e.g., April 2026)
+    const startDate = '2026-04-01';
+    const endDate = '2026-04-06';
+
     const attendances = await Attendance.find({
-      status: { $in: ['Absent', 'Leave', 'Half Day'] },
+      date: { $gte: startDate, $lte: endDate }
     });
 
-    console.log(`Found ${attendances.length} records that might need fixing.`);
+    console.log(`Analyzing ${attendances.length} records from ${startDate} to ${endDate}...`);
 
     for (const record of attendances) {
-      if (!record.leaveDeducted) {
-        const user = await User.findById(record.userId);
-        if (!user) continue;
-
-        let targetDeduction = 0;
-        if (record.status === 'Absent' || record.status === 'Leave') targetDeduction = 1;
-        if (record.status === 'Half Day') targetDeduction = 0.5;
-
-        // Deduct from user balance
-        let currentBalance = user.casualLeaveBalance || 0;
-        let actualDeduction = 0;
-
-        if (currentBalance >= targetDeduction) {
-          actualDeduction = targetDeduction;
-        } else {
-          actualDeduction = currentBalance;
+      const oldStatus = record.status;
+      
+      // 1. Recalculate status based on new 7.5h rules
+      // (Wait: Only recalculate if it wasn't manually marked as 'Leave')
+      if (record.status !== 'Leave') {
+        const newStatus = calculateStatus(record.date, record.totalHours);
+        if (newStatus !== oldStatus) {
+            record.status = newStatus;
+            await record.save();
+            console.log(`Updated status for user ${record.userId} on ${record.date}: ${oldStatus} -> ${newStatus}`);
         }
-
-        if (actualDeduction > 0) {
-          user.casualLeaveBalance = currentBalance - actualDeduction;
-          await user.save();
-          console.log(`Deducted ${actualDeduction} from ${user.name} for ${record.status} on ${record.date}`);
-        }
-
-        record.leaveDeducted = actualDeduction;
-        await record.save();
       }
+
+      // 2. Sync leave balance (handles deduction or refund)
+      await syncLeaveBalance(record.userId, record._id);
     }
 
     console.log('✅ Sync complete');

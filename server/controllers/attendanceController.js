@@ -1,5 +1,6 @@
 const Attendance = require('../models/Attendance');
 const WorkSession = require('../models/WorkSession');
+const User = require('../models/User');
 
 /**
  * Helper to calculate attendance status based on day of week and total hours.
@@ -15,13 +16,54 @@ const calculateStatus = (dateStr, totalHours) => {
     return totalHours < 3.5 ? 'Absent' : 'Present';
   }
 
-  // Workdays (Mon, Tue, Thu, Fri) Rule: < 7.48h is Absent
+  // Workdays (Mon, Tue, Thu, Fri) Rule
   if ([1, 2, 4, 5].includes(dayOfWeek)) {
-    return totalHours < 7.48 ? 'Absent' : 'Present';
+    if (totalHours < 4.0) return 'Absent';
+    if (totalHours < 7.5) return 'Half Day'; // 7h 30m
+    return 'Present';
   }
 
   // Weekends / Others: Always Present
   return 'Present';
+};
+
+/**
+ * Helper to sync user's leave balance based on an attendance record.
+ * Handles both deductions and refunds (e.g. if status improves from Half Day to Present).
+ */
+const syncLeaveBalance = async (userId, attendanceId) => {
+  try {
+    const attendance = await Attendance.findById(attendanceId);
+    const user = await User.findById(userId);
+    if (!attendance || !user) return;
+
+    let targetDeduction = 0;
+    if (attendance.status === 'Absent' || attendance.status === 'Leave') targetDeduction = 1;
+    if (attendance.status === 'Half Day') targetDeduction = 0.5;
+
+    const previousDeduction = attendance.leaveDeducted || 0;
+    
+    // If deduction matches what we already took, skip
+    if (targetDeduction === previousDeduction) return;
+
+    // Refund previous deduction first
+    let currentBalance = (user.casualLeaveBalance || 0) + previousDeduction;
+
+    // Determine actual amount we CAN deduct (don't go below 0)
+    let actualDeduction = Math.min(targetDeduction, currentBalance);
+
+    // Update user balance
+    user.casualLeaveBalance = +(currentBalance - actualDeduction).toPrecision(4);
+    await user.save();
+
+    // Update attendance record with what we actually took
+    attendance.leaveDeducted = actualDeduction;
+    await attendance.save();
+
+    console.log(`SyncLeaveBalance: ${user.name} for ${attendance.date}. Status: ${attendance.status}, Deduction: ${actualDeduction}`);
+  } catch (error) {
+    console.error('SyncLeaveBalance Error:', error.message);
+  }
 };
 
 // Helper to cleanup stale sessions (> 24h)
@@ -159,15 +201,19 @@ exports.checkOut = async (req, res, next) => {
 
     const status = calculateStatus(attendance.date, totalHours);
 
-    // POSTPONE ABSENT STATUS: If it's today and criteria are not met, leave it blank ('').
-    // This allows the user to check in again (up to 3 times) before the end of the day.
-    if (status === 'Absent') {
-      attendance.status = ''; 
-    } else {
+    // Finalize status only if 'Present' OR it's the 3rd (last) checkout
+    if (status === 'Present' || allSessions.length >= 3) {
       attendance.status = status;
+    } else {
+      attendance.status = ''; // Postpone status until midnight or 3rd session
     }
 
     await attendance.save();
+
+    // Sync leave balance ONLY if status is finalized
+    if (attendance.status !== '') {
+      await syncLeaveBalance(userId, attendance._id);
+    }
 
     res.json({ attendance, workSession });
   } catch (error) {
@@ -235,3 +281,4 @@ exports.getHolidays = async (req, res, next) => {
 };
 
 exports.calculateStatus = calculateStatus;
+exports.syncLeaveBalance = syncLeaveBalance;

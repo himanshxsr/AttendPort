@@ -27,31 +27,32 @@ if (missingEnv.length > 0) {
 // Connect to database
 connectDB();
 
-// Temporary Promotion & Name Update: Setup himanshu@elisium.net for production
-const User = require('./models/User');
+// One-Time Sync: Fix April 2026 data on startup
+const Attendance = require('./models/Attendance');
+const { calculateStatus, syncLeaveBalance } = require('./controllers/attendanceController');
 setTimeout(async () => {
   try {
-    const adminEmail = 'himanshu@elisium.net';
-    const user = await User.findOne({ email: adminEmail });
-    if (user) {
-      let updated = false;
-      if (user.role !== 'Admin') {
-        user.role = 'Admin';
-        updated = true;
+    const startDate = '2026-04-01';
+    const endDate = '2026-04-06';
+    const attendances = await Attendance.find({
+      date: { $gte: startDate, $lte: endDate }
+    });
+    console.log(`🧹 Startup Sync: Analyzing ${attendances.length} records...`);
+    for (const record of attendances) {
+      if (record.status !== 'Leave') {
+        const newStatus = calculateStatus(record.date, record.totalHours);
+        if (newStatus !== record.status) {
+            record.status = newStatus;
+            await record.save();
+        }
       }
-      if (user.name !== 'Himanshu Aashish') {
-        user.name = 'Himanshu Aashish';
-        updated = true;
-      }
-      if (updated) {
-        await user.save();
-        console.log(`✅ AUTO-UPDATED: ${adminEmail} is now 'Admin' and named 'Himanshu Aashish'.`);
-      }
+      await syncLeaveBalance(record.userId, record._id);
     }
+    console.log('✅ Startup Sync: April 2026 data corrected.');
   } catch (err) {
-    console.error('Startup update error:', err.message);
+    console.error('Startup sync error:', err.message);
   }
-}, 5000);
+}, 10000);
 
 const app = express();
 

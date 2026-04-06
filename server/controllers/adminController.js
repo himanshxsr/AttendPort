@@ -234,17 +234,8 @@ exports.markManualAttendance = async (req, res, next) => {
     }
 
     const newStatus = status || 'Present';
-    let targetDeduction = 0;
-    if (newStatus === 'Absent' || newStatus === 'Leave') targetDeduction = 1;
-    if (newStatus === 'Half Day') targetDeduction = 0.5;
-
-    let previousDeductionRefund = 0;
     
-    if (attendance) {
-      previousDeductionRefund = attendance.leaveDeducted || 0;
-      attendance.status = newStatus;
-      attendance.totalHours = newStatus === 'Present' ? 9 : (newStatus === 'Half Day' ? 4.5 : 0);
-    } else {
+    if (!attendance) {
       attendance = new Attendance({
         userId,
         date,
@@ -254,28 +245,20 @@ exports.markManualAttendance = async (req, res, next) => {
         checkOut: newStatus === 'Present' ? new Date(`${date}T18:00:00`) : null,
         leaveDeducted: 0
       });
-    }
-
-    // Refund their previous deduction (if we are overwriting a past manual entry)
-    let currentBalance = (user.casualLeaveBalance || 0) + previousDeductionRefund;
-
-    // Determine actual amount we CAN deduct without going below 0
-    let actualDeduction = 0;
-    if (currentBalance >= targetDeduction) {
-      actualDeduction = targetDeduction;
     } else {
-      actualDeduction = currentBalance; // Take whatever is left (could be 0)
+      attendance.status = newStatus;
+      attendance.totalHours = newStatus === 'Present' ? 9 : (newStatus === 'Half Day' ? 4.5 : 0);
     }
-
-    // Update the attendance record with what we ACTUALLY took
-    attendance.leaveDeducted = actualDeduction;
+    
     await attendance.save();
 
-    // Update the user's balance
-    user.casualLeaveBalance = currentBalance - actualDeduction;
-    await user.save();
+    // CENTRALIZED SYNC: use the shared leave balance helper
+    const { syncLeaveBalance } = require('./attendanceController');
+    await syncLeaveBalance(userId, attendance._id);
 
-    res.json(attendance);
+    // Re-fetch the updated attendance (with leaveDeducted) to return to UI
+    const updatedAttendance = await Attendance.findById(attendance._id);
+    res.json(updatedAttendance);
   } catch (error) {
     next(error);
   }
