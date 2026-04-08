@@ -99,12 +99,15 @@ app.listen(PORT, () => {
 const https = require('https');
 const SERVER_URL = process.env.SERVER_URL;
 
-if (SERVER_URL && process.env.NODE_ENV === 'production') {
+if (SERVER_URL) {
   console.log(`🚀 Self-pinger initialized for: ${SERVER_URL}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('⚠️ Self-pinger is running in non-production mode.');
+  }
   setInterval(() => {
     https.get(`${SERVER_URL}/ping`, (res) => {
       if (res.statusCode === 200) {
-        console.log(`Pinged server at ${new Date().toISOString()}: Success (200)`);
+        console.log(`Pinged server at ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}: Success (200)`);
       } else {
         console.error(`Pinged server but got unexpected status: ${res.statusCode}`);
       }

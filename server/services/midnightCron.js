@@ -13,7 +13,7 @@ const { calculateStatus } = require('../controllers/attendanceController');
  * 3. Creates 'Absent' records for users who didn't check in at all.
  */
 const initMidnightCron = () => {
-  // schedule for 00:00 every day
+  // schedule for 00:00 every day in India time
   cron.schedule('0 0 * * *', async () => {
     console.log('🌙 Midnight Automation: Starting daily attendance finalization...');
     
@@ -42,6 +42,13 @@ const initMidnightCron = () => {
         for (const session of filteredSessions) {
           session.endTime = manualEndTime;
           await session.save();
+
+          // Also update the parent attendance checkout time if not already set
+          const attendance = await Attendance.findById(session.attendanceId._id);
+          if (attendance && !attendance.checkOut) {
+            attendance.checkOut = manualEndTime;
+            await attendance.save();
+          }
         }
       }
 
@@ -66,6 +73,13 @@ const initMidnightCron = () => {
           
           attendance.totalHours = +(totalMs / 3600000).toFixed(2);
           
+          // Ensure checkOut is visible on the dashboard if it was closed by automation
+          if (!attendance.checkOut) {
+            const manualEndTime = new Date(yesterday);
+            manualEndTime.setHours(23, 59, 59, 999);
+            attendance.checkOut = manualEndTime;
+          }
+
           // Only finalize if status is currently empty or incorrectly marked
           if (!attendance.status || attendance.status === '') {
             attendance.status = calculateStatus(dateStr, attendance.totalHours);
@@ -93,6 +107,9 @@ const initMidnightCron = () => {
     } catch (error) {
       console.error('❌ Midnight Automation Error:', error.message);
     }
+  }, {
+    scheduled: true,
+    timezone: "Asia/Kolkata"
   });
 };
 

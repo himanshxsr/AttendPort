@@ -179,7 +179,8 @@ const AdminPage = () => {
         loadUser();
       }
     } catch (err) {
-      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to update profile' });
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to update profile';
+      setMessage({ type: 'error', text: errorMsg });
     } finally {
       setFormLoading(false);
     }
@@ -201,8 +202,8 @@ const AdminPage = () => {
       joiningDate: user.joiningDate || '',
       leavingDate: user.leavingDate || '',
       taxRegime: user.taxRegime || '',
-      casualLeaveBalance: user.casualLeaveBalance || 2,
-      sickLeaveBalance: user.sickLeaveBalance || 2,
+      casualLeaveBalance: (user.casualLeaveBalance !== undefined && user.casualLeaveBalance !== null) ? user.casualLeaveBalance : 2,
+      sickLeaveBalance: (user.sickLeaveBalance !== undefined && user.sickLeaveBalance !== null) ? user.sickLeaveBalance : 2,
       avatar: user.avatar || '',
       emergencyContact: user.emergencyContact || '',
       bloodGroup: user.bloodGroup || '',
@@ -1441,6 +1442,10 @@ const AdminPage = () => {
                   <div>
                     <label className="label-style">Account Number</label>
                     <input type="text" className="input-field" value={profileForm.accountNumber} onChange={(e) => setProfileForm({...profileForm, accountNumber: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="label-style">Bank Name</label>
+                    <input type="text" className="input-field" value={profileForm.bankName} onChange={(e) => setProfileForm({...profileForm, bankName: e.target.value})} placeholder="e.g. HDFC Bank" />
                   </div>
                   <div>
                     <label className="label-style">PF Account Number</label>

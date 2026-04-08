@@ -285,12 +285,22 @@ exports.updateUserProfile = async (req, res, next) => {
 
     profileFields.forEach(field => {
       if (req.body[field] !== undefined) {
-        user[field] = req.body[field];
+        // If employeeCode is an empty string, set it to null so the sparse index ignores it
+        if (field === 'employeeCode' && typeof req.body[field] === 'string' && req.body[field].trim() === '') {
+          user[field] = null; // Explicit null is better for unsetting string keys with unique indexes
+        } else {
+          user[field] = req.body[field];
+        }
       }
     });
 
-    await user.save();
-    res.json(user);
+    try {
+      await user.save();
+      res.json(user);
+    } catch (saveError) {
+      console.error('ERROR saving user profile:', saveError.message, saveError.code === 11000 ? saveError.keyValue : '');
+      throw saveError; // Re-throw to be caught by the outer catch and passed to next(error)
+    }
   } catch (error) {
     next(error);
   }
