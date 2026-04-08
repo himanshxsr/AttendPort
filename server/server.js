@@ -96,16 +96,19 @@ app.listen(PORT, () => {
 });
 
 // Self-pinger to keep the server awake on Render (Free Tier)
-const https = require('https');
 const SERVER_URL = process.env.SERVER_URL;
 
 if (SERVER_URL) {
+  const http = require('http');
+  const https = require('https');
+  const pingClient = SERVER_URL.startsWith('https') ? https : http;
+
   console.log(`🚀 Self-pinger initialized for: ${SERVER_URL}`);
   if (process.env.NODE_ENV !== 'production') {
     console.warn('⚠️ Self-pinger is running in non-production mode.');
   }
   setInterval(() => {
-    https.get(`${SERVER_URL}/ping`, (res) => {
+    pingClient.get(`${SERVER_URL}/ping`, (res) => {
       if (res.statusCode === 200) {
         console.log(`Pinged server at ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}: Success (200)`);
       } else {

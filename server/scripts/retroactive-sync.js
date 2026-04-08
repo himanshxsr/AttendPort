@@ -1,61 +1,50 @@
 const mongoose = require('mongoose');
-const User = require('../models/User');
 const Attendance = require('../models/Attendance');
-require('dotenv').config({ path: './server/.env' });
+const WorkSession = require('../models/WorkSession');
+const { calculateStatus, syncLeaveBalance } = require('../controllers/attendanceController');
+const dotenv = require('dotenv');
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://himanshu:ElisiumSpace@cluster0.qutmnik.mongodb.net/attendance-portal?retryWrites=true&w=majority&appName=Cluster0';
+dotenv.config({ path: '../.env.local' });
+dotenv.config({ path: '../.env' });
 
-async function performRetroactiveDeduction() {
+const syncDate = async (dateStr) => {
   try {
-    await mongoose.connect(MONGO_URI);
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log(`🧹 Retroactive Sync: Processing records for ${dateStr}...`);
     
-    // Find all 'Absent' and 'Half Day' attendance records that have not recorded a deduction yet
-    const attendances = await Attendance.find({ 
-      status: { $in: ['Absent', 'Leave', 'Half Day'] },
-      $or: [
-        { leaveDeducted: { $exists: false } },
-        { leaveDeducted: 0 }
-      ]
-    });
-
-    console.log(`Analyzing ${attendances.length} historical absence records for missing deductions...`);
-
-    for (const record of attendances) {
-      // Find the associated user
-      const user = await User.findById(record.userId);
-      if (!user) continue;
-
-      let targetDeduction = 0;
-      if (record.status === 'Absent' || record.status === 'Leave') targetDeduction = 1;
-      if (record.status === 'Half Day') targetDeduction = 0.5;
-
-      let currentBalance = user.casualLeaveBalance || 2; // Default to 2 if somehow undefined
-      let actualDeduction = 0;
-
-      // Cannot drop below 0
-      if (currentBalance >= targetDeduction) {
-        actualDeduction = targetDeduction;
-      } else {
-        actualDeduction = currentBalance;
-      }
-
-      if (actualDeduction > 0) {
-        user.casualLeaveBalance = currentBalance - actualDeduction;
-        await user.save();
-        console.log(`[FIXED] Deducted ${actualDeduction} from ${user.name} for ${record.status} on ${record.date}. New Balance: ${user.casualLeaveBalance}`);
+    const records = await Attendance.find({ date: dateStr });
+    
+    for (const record of records) {
+      // Recalculate hours
+      const sessions = await WorkSession.find({ attendanceId: record._id });
+      let totalMs = 0;
+      sessions.forEach(s => {
+        if (s.startTime && s.endTime) {
+          totalMs += new Date(s.endTime) - new Date(s.startTime);
+        }
+      });
+      
+      record.totalHours = +(totalMs / 3600000).toFixed(2);
+      
+      // Force finalize status based on hours
+      if (!record.status || record.status === '' || record.status === 'Absent') {
+         const newStatus = calculateStatus(dateStr, record.totalHours);
+         if (newStatus !== record.status) {
+            record.status = newStatus;
+            console.log(`✅ Updated ${record._id} for User ${record.userId}: ${record.status} (${record.totalHours}h)`);
+         }
       }
       
-      // Store the fact that we deducted it
-      record.leaveDeducted = actualDeduction;
       await record.save();
+      await syncLeaveBalance(record.userId, record._id);
     }
-
-    console.log('Retroactive deduction analysis complete.');
-    process.exit(0);
+    
+    console.log('✨ Retroactive Sync: Completed.');
+    await mongoose.connection.close();
   } catch (err) {
-    console.error('Error during sync:', err);
+    console.error(err);
     process.exit(1);
   }
-}
+};
 
-performRetroactiveDeduction();
+syncDate('2026-04-08');

@@ -4,6 +4,7 @@ const Attendance = require('../models/Attendance');
 const WorkSession = require('../models/WorkSession');
 const Holiday = require('../models/Holiday');
 const { calculateStatus } = require('../controllers/attendanceController');
+const { getISTDateString } = require('../utils/dateUtils');
 
 /**
  * Midnight Cron Job
@@ -19,9 +20,10 @@ const initMidnightCron = () => {
     
     try {
       // 1. Identify yesterday's date string (YYYY-MM-DD)
+      // Since cron runs at 00:00 IST, subtracting 1 hour ensures we get the correct "yesterday"
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const dateStr = yesterday.toLocaleDateString('en-CA'); // YYYY-MM-DD
+      yesterday.setHours(yesterday.getHours() - 1);
+      const dateStr = getISTDateString(yesterday);
       
       // 2. Auto-Checkout dangling sessions
       // Find all work sessions for yesterday that never ended

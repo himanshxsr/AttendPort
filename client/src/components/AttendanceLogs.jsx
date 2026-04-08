@@ -1,4 +1,4 @@
-import { formatDate, formatHours } from '../utils/formatTime';
+import { formatDate, formatHours, getISTDateString } from '../utils/formatTime';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 
@@ -14,7 +14,7 @@ const AttendanceLogs = ({ logs, isCheckedIn }) => {
     );
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getISTDateString();
 
   return (
     <div className="glass-card" style={{ overflow: 'hidden' }}>

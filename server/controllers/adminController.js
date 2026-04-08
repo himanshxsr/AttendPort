@@ -24,6 +24,9 @@ const generateUniqueEmployeeCode = async () => {
 // @access  Private/Admin
 exports.getAllAttendance = async (req, res, next) => {
   try {
+    const { cleanupStaleSessions } = require('./attendanceController');
+    await cleanupStaleSessions(); // Run global cleanup for all users
+
     const logs = await Attendance.find({})
       .populate('userId', 'name email avatar')
       .populate('workSessions')
@@ -241,13 +244,18 @@ exports.markManualAttendance = async (req, res, next) => {
         date,
         status: newStatus,
         totalHours: newStatus === 'Present' ? 9 : (newStatus === 'Half Day' ? 4.5 : 0),
-        checkIn: newStatus === 'Present' ? new Date(`${date}T09:00:00`) : null,
-        checkOut: newStatus === 'Present' ? new Date(`${date}T18:00:00`) : null,
+        checkIn: (newStatus === 'Present' || newStatus === 'Half Day') ? new Date(`${date}T09:00:00`) : null,
+        checkOut: newStatus === 'Present' ? new Date(`${date}T18:00:00`) : (newStatus === 'Half Day' ? new Date(`${date}T13:30:00`) : null),
         leaveDeducted: 0
       });
     } else {
       attendance.status = newStatus;
       attendance.totalHours = newStatus === 'Present' ? 9 : (newStatus === 'Half Day' ? 4.5 : 0);
+      // Clean up checkIn/checkOut if marking as Leave or Absent
+      if (newStatus === 'Leave' || newStatus === 'Absent') {
+        attendance.checkIn = null;
+        attendance.checkOut = null;
+      }
     }
     
     await attendance.save();

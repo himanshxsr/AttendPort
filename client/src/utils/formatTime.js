@@ -70,3 +70,15 @@ export const getCompleteHistory = (startDate, logs = []) => {
   // Return sorted descending (newest first)
   return history.sort((a, b) => new Date(b.date) - new Date(a.date));
 };
+
+/**
+ * Returns current date in YYYY-MM-DD format for Asia/Kolkata timezone (IST).
+ */
+export const getISTDateString = (date = new Date()) => {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+};

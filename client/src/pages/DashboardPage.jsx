@@ -6,7 +6,7 @@ import Timer from '../components/Timer';
 import AttendanceLogs from '../components/AttendanceLogs';
 import AttendanceCalendar from '../components/AttendanceCalendar';
 import UserAvatar from '../components/UserAvatar';
-import { formatHours, getCompleteHistory } from '../utils/formatTime';
+import { formatHours, getCompleteHistory, getISTDateString } from '../utils/formatTime';
 import { Clock, CalendarDays, TrendingUp, CheckCircle, Trash2 } from 'lucide-react';
 
 const DashboardPage = () => {
@@ -145,7 +145,7 @@ const DashboardPage = () => {
 
   const getStatusDisplay = (log) => {
     if (!log) return '--';
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getISTDateString();
     const isToday = log.date === todayStr;
     const isFuture = log.date > todayStr;
 

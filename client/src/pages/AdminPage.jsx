@@ -416,6 +416,8 @@ const AdminPage = () => {
 
     // 2. ABSENT status: No hours recorded for a past day or today (if not active)
     if (log.totalHours === 0) {
+      if (log.status?.toLowerCase() === 'leave') return 'LEAVE';
+      if (log.status?.toLowerCase() === 'holiday') return 'HOLIDAY';
       return isToday ? '--' : 'ABSENT';
     }
 
@@ -428,6 +430,7 @@ const AdminPage = () => {
     if (status === '--') return 'none';
     if (status === 'ABSENT') return 'absent';
     if (status === 'HOLIDAY') return 'holiday';
+    if (status === 'LEAVE') return 'leave';
     if (status === 'ACTIVE') return 'present'; // Use present color for active
     return log.status?.toLowerCase() || 'none';
   };

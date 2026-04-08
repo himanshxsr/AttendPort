@@ -16,7 +16,10 @@ router.get(
 
 router.get(
   '/google/callback',
-  passport.authenticate('google', { session: false, failureRedirect: '/login' }),
+  passport.authenticate('google', { 
+    session: false, 
+    failureRedirect: `${process.env.CLIENT_URL}/login?error=Unauthorized` 
+  }),
   (req, res) => {
     // Successful authentication, generate token
     const token = jwt.sign({ id: req.user._id }, process.env.JWT_SECRET, {

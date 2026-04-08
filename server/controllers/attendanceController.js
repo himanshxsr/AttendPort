@@ -1,6 +1,7 @@
 const Attendance = require('../models/Attendance');
 const WorkSession = require('../models/WorkSession');
 const User = require('../models/User');
+const { getISTDateString } = require('../utils/dateUtils');
 
 /**
  * Helper to calculate attendance status based on day of week and total hours.
@@ -66,41 +67,63 @@ const syncLeaveBalance = async (userId, attendanceId) => {
   }
 };
 
-// Helper to cleanup stale sessions (> 24h)
+// Helper to cleanup stale sessions (any open session from previous days)
 const cleanupStaleSessions = async (userId) => {
-  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  try {
+    const todayStr = getISTDateString();
+    
+    // Find all open sessions for this user
+    const openSessions = await WorkSession.find({
+      $or: [{ endTime: { $exists: false } }, { endTime: null }]
+    }).populate('attendanceId');
 
-  // Find all open sessions for this user that started more than 24h ago
-  const staleSessions = await WorkSession.find({
-    $or: [{ endTime: { $exists: false } }, { endTime: null }],
-    startTime: { $lt: twentyFourHoursAgo },
-  }).populate('attendanceId');
+    const staleSessions = openSessions.filter(s => 
+      s.attendanceId && 
+      (userId ? s.attendanceId.userId.toString() === userId.toString() : true) &&
+      s.attendanceId.date < todayStr
+    );
 
-  for (const session of staleSessions) {
-    if (session.attendanceId && session.attendanceId.userId.toString() === userId.toString()) {
+    if (staleSessions.length > 0) {
+      console.log(`🧹 Cleanup: Closing ${staleSessions.length} stale sessions${userId ? ` for User ${userId}` : ' globally'}`);
+    }
+
+    for (const session of staleSessions) {
       const attendance = await Attendance.findById(session.attendanceId._id);
       if (attendance) {
-        // If session was never closed, close it now
-        session.endTime = session.startTime; // Or some other logic, but close it
+        const uId = attendance.userId;
+        // Close at the end of that specific day
+        const [year, month, day] = attendance.date.split('-').map(Number);
+        const manualEndTime = new Date(year, month - 1, day, 23, 59, 59, 999);
+        
+        session.endTime = manualEndTime;
         await session.save();
 
-        // Recalculate total hours for the day including this session
+        attendance.checkOut = manualEndTime;
+        
+        // Recalculate total hours accurately
         const allSessions = await WorkSession.find({ attendanceId: attendance._id });
         let totalMs = 0;
         allSessions.forEach((s) => {
-          if (s.startTime && s.endTime) {
-            totalMs += new Date(s.endTime) - new Date(s.startTime);
+          const start = new Date(s.startTime);
+          const end = s.endTime ? new Date(s.endTime) : manualEndTime;
+          if (start && end) {
+            totalMs += end - start;
           }
         });
-        const totalHours = +(totalMs / 3600000).toFixed(2);
-        attendance.totalHours = totalHours;
-
-        // Auto-checkout results in 'Absent' status strictly
+        
+        attendance.totalHours = +(totalMs / 3600000).toFixed(2);
+        
+        // Finalize status: If it was auto-checked out, it's strictly Absent 
+        // unless you want to use the standard calculation. 
+        // Most companies use Absent for missed checkouts.
         attendance.status = 'Absent';
         
         await attendance.save();
+        await syncLeaveBalance(uId, attendance._id);
       }
     }
+  } catch (error) {
+    console.error('CleanupStaleSessions Error:', error.message);
   }
 };
 
@@ -114,7 +137,7 @@ exports.checkIn = async (req, res, next) => {
     // 1. Cleanup old sessions first
     await cleanupStaleSessions(userId);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getISTDateString();
     let attendance = await Attendance.findOne({ userId, date: today });
 
     if (!attendance) {
@@ -156,7 +179,7 @@ exports.checkIn = async (req, res, next) => {
 // @access  Private
 exports.checkOut = async (req, res, next) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getISTDateString();
     const userId = req.user._id;
 
     const attendance = await Attendance.findOne({ userId, date: today });
@@ -223,13 +246,13 @@ exports.getTodayAttendance = async (req, res, next) => {
     // Cleanup old sessions to ensure UI is accurate
     await cleanupStaleSessions(userId);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getISTDateString();
     const attendance = await Attendance.findOne({ userId, date: today });
 
     // FIXED: If today's record has an Incorrect status ('Present' with 0h or 'Absent' incorrectly), clear it
     if (attendance && attendance.date === today) {
       if ((attendance.status === 'Present' && (attendance.totalHours || 0) === 0) || 
-          (attendance.status === 'Absent')) {
+          (attendance.status === 'Absent' && (attendance.totalHours || 0) === 0)) {
         attendance.status = '';
         await attendance.save();
       }
@@ -274,3 +297,4 @@ exports.getHolidays = async (req, res, next) => {
 
 exports.calculateStatus = calculateStatus;
 exports.syncLeaveBalance = syncLeaveBalance;
+exports.cleanupStaleSessions = cleanupStaleSessions;
