@@ -43,10 +43,11 @@ const initMidnightCron = () => {
           session.endTime = manualEndTime;
           await session.save();
 
-          // Also update the parent attendance checkout time if not already set
+          // Also update the parent attendance checkout time and mark as Absent
           const attendance = await Attendance.findById(session.attendanceId._id);
-          if (attendance && !attendance.checkOut) {
+          if (attendance) {
             attendance.checkOut = manualEndTime;
+            attendance.status = 'Absent'; // Strictly mark as Absent if auto-checked out
             await attendance.save();
           }
         }

@@ -95,16 +95,8 @@ const cleanupStaleSessions = async (userId) => {
         const totalHours = +(totalMs / 3600000).toFixed(2);
         attendance.totalHours = totalHours;
 
-        const status = calculateStatus(attendance.date, totalHours);
-        const today = new Date().toISOString().split('T')[0];
-
-        // If it's a past record, we apply 'Absent' if hours are insufficient.
-        // If it's today's record (via check-in cleanup), we only mark 'Present' or leave it empty ('').
-        if (attendance.date === today && status === 'Absent') {
-          attendance.status = '';
-        } else {
-          attendance.status = status;
-        }
+        // Auto-checkout results in 'Absent' status strictly
+        attendance.status = 'Absent';
         
         await attendance.save();
       }
