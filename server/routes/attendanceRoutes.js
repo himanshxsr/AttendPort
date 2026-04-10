@@ -22,6 +22,7 @@ router.get('/holidays', getHolidays);
 // Leave management (User)
 router.post('/apply-leave', applyLeave);
 router.get('/my-leaves', getMyLeaves);
+router.put('/cancel-leave/:id', cancelLeave);
 
 // Payroll (User)
 router.get('/my-payslips', getMyPayslips);
