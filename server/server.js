@@ -25,12 +25,15 @@ if (missingEnv.length > 0) {
 }
 
 // Connect to database
-connectDB();
+if (process.env.NODE_ENV !== 'test') {
+  connectDB();
+}
 
 // One-Time Sync: Fix April 2026 data on startup
 const Attendance = require('./models/Attendance');
 const { calculateStatus, syncLeaveBalance } = require('./controllers/attendanceController');
-setTimeout(async () => {
+if (process.env.NODE_ENV !== 'test') {
+  setTimeout(async () => {
   try {
     const startDate = '2026-04-01';
     const endDate = '2026-04-06';
@@ -53,6 +56,7 @@ setTimeout(async () => {
     console.error('Startup sync error:', err.message);
   }
 }, 10000);
+}
 
 const app = express();
 
@@ -87,18 +91,21 @@ app.get('/ping', (req, res) => {
 // Error handler
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
+module.exports = app;
 
-app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-  // Start midnight automation
-  initMidnightCron();
-});
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    // Start midnight automation
+    initMidnightCron();
+  });
+}
 
 // Self-pinger to keep the server awake on Render (Free Tier)
 const SERVER_URL = process.env.SERVER_URL;
 
-if (SERVER_URL) {
+if (SERVER_URL && process.env.NODE_ENV !== 'test') {
   const http = require('http');
   const https = require('https');
   const pingClient = SERVER_URL.startsWith('https') ? https : http;
