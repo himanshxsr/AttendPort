@@ -56,7 +56,19 @@ module.exports = function(passport) {
             await user.save();
             return done(null, user);
           } else {
-            // IF NO USER EXISTS WITH THIS EMAIL, REJECT SIGN-IN
+            // IF NO USER EXISTS WITH THIS EMAIL, CHECK IF DB IS TOTALLY EMPTY
+            const userCount = await User.countDocuments({});
+            if (userCount === 0) {
+              // Create the first user (make them Admin by default)
+              user = await User.create({
+                name: profile.displayName,
+                email: email,
+                googleId: profile.id,
+                avatar: profile.photos[0].value,
+                role: 'Admin',
+              });
+              return done(null, user);
+            }
             return done(null, false, { message: 'This email is not authorized to sign in. Please contact your admin.' });
           }
         } catch (err) {

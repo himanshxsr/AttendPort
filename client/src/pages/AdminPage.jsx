@@ -53,6 +53,7 @@ const AdminPage = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedUserForProfile, setSelectedUserForProfile] = useState(null);
   const [profileForm, setProfileForm] = useState({
+    email: '',
     employeeCode: '', designation: '', location: '', pan: '', sex: '', 
     accountNumber: '', bankName: '', pfAccountNumber: '', pfUAN: '', 
     esiNumber: '', joiningDate: '', leavingDate: '', taxRegime: '',
@@ -189,6 +190,7 @@ const AdminPage = () => {
   const openProfileModal = (user) => {
     setSelectedUserForProfile(user);
     setProfileForm({
+      email: user.email || '',
       employeeCode: user.employeeCode || '',
       designation: user.designation || '',
       location: user.location || '',
@@ -1417,6 +1419,23 @@ const AdminPage = () => {
 
               <form onSubmit={handleUpdateProfile}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label className="label-style" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      Registered Email
+                      <span style={{ fontSize: '0.7rem', background: 'rgba(139,92,246,0.2)', color: '#a78bfa', padding: '1px 8px', borderRadius: '999px', fontWeight: 600 }}>Editable</span>
+                    </label>
+                    <input
+                      type="email"
+                      className="input-field"
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
+                      placeholder="user@elisium.net"
+                      style={{ borderColor: 'rgba(139,92,246,0.4)' }}
+                    />
+                    <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
+                      ⚠️ Changing this will affect how the user logs in (Google Sign-In uses email for matching).
+                    </p>
+                  </div>
                   <div>
                     <label className="label-style">Employee Code</label>
                     <input type="text" className="input-field" value={profileForm.employeeCode} onChange={(e) => setProfileForm({...profileForm, employeeCode: e.target.value})} placeholder="e.g. EMP001" />

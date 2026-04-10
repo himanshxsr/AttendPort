@@ -302,6 +302,18 @@ exports.updateUserProfile = async (req, res, next) => {
       }
     });
 
+    // Handle email update with uniqueness check
+    if (req.body.email !== undefined && req.body.email.trim() !== '') {
+      const newEmail = req.body.email.trim().toLowerCase();
+      if (newEmail !== user.email.toLowerCase()) {
+        const emailTaken = await User.findOne({ email: newEmail, _id: { $ne: user._id } });
+        if (emailTaken) {
+          return res.status(400).json({ message: `Email "${newEmail}" is already registered to another user.` });
+        }
+        user.email = newEmail;
+      }
+    }
+
     try {
       await user.save();
       res.json(user);

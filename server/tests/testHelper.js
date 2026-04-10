@@ -7,14 +7,13 @@ dotenv.config();
 const connectTestDB = async () => {
   const uri = process.env.MONGO_URI_TEST || process.env.MONGO_URI.replace(/\/[^/]+$/, '/attendance_test');
   
-  // If we're already connected, check if it's the test URI
   if (mongoose.connection.readyState !== 0) {
     const currentUri = mongoose.connection.getClient().s.url;
     if (currentUri.includes('attendance-portal')) {
-       console.warn('⚠️ Alert: Was connected to production. Disconnecting...');
+       console.warn('⚠️ Safety Alert: Was connected to production. Disconnecting...');
        await mongoose.disconnect();
     } else {
-       return; // Already connected to test
+       return;
     }
   }
 
@@ -27,9 +26,11 @@ const closeTestDB = async () => {
 };
 
 const clearDatabase = async () => {
-  // SAFETY CHECK: Never clear if DB name doesn't contain 'test'
+  // CRITICAL SAFETY CHECK: Never clear unless DB name contains 'test'
   if (!mongoose.connection.name.toLowerCase().includes('test')) {
-    throw new Error(`🚫 SAFETY STOP: Attempted to clear non-test database: ${mongoose.connection.name}`);
+    const errorMsg = `🚫 CRITICAL SAFETY STOP: Attempted to run clearDatabase() on a potentially non-test database: ${mongoose.connection.name}. Execution halted to prevent data loss.`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
   }
 
   const collections = mongoose.connection.collections;
