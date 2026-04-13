@@ -1,0 +1,47 @@
+[
+  {
+    "_id": "69dca3dd7a385727d1f60ddf",
+    "date": "2026-04-14",
+    "userId": "69d965112009e4d59891cdb6",
+    "__v": 0,
+    "leaveDeducted": 0,
+    "status": "Leave",
+    "totalHours": 0
+  },
+  {
+    "_id": "69dca3dd7a385727d1f60de0",
+    "userId": "69d965112009e4d59891cdb6",
+    "date": "2026-04-15",
+    "__v": 0,
+    "leaveDeducted": 0,
+    "status": "Leave",
+    "totalHours": 0
+  },
+  {
+    "_id": "69dca3f47a385727d1f60de1",
+    "userId": "69d965122009e4d59891cdc5",
+    "date": "2026-04-14",
+    "__v": 0,
+    "leaveDeducted": 0,
+    "status": "Leave",
+    "totalHours": 0
+  },
+  {
+    "_id": "69dca3f47a385727d1f60de2",
+    "date": "2026-04-15",
+    "userId": "69d965122009e4d59891cdc5",
+    "__v": 0,
+    "leaveDeducted": 0,
+    "status": "Leave",
+    "totalHours": 0
+  },
+  {
+    "_id": "69dca3f47a385727d1f60de3",
+    "date": "2026-04-16",
+    "userId": "69d965122009e4d59891cdc5",
+    "__v": 0,
+    "leaveDeducted": 0,
+    "status": "Leave",
+    "totalHours": 0
+  }
+]

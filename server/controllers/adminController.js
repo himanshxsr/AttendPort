@@ -25,9 +25,11 @@ const generateUniqueEmployeeCode = async () => {
 exports.getAllAttendance = async (req, res, next) => {
   try {
     const { cleanupStaleSessions } = require('./attendanceController');
+    const { getISTDateString } = require('../utils/dateUtils');
     await cleanupStaleSessions(); // Run global cleanup for all users
 
-    const logs = await Attendance.find({})
+    const today = getISTDateString();
+    const logs = await Attendance.find({ date: { $lte: today } })
       .populate('userId', 'name email avatar')
       .populate('workSessions')
       .sort({ date: -1 });
