@@ -2,6 +2,30 @@ const Leave = require('../models/Leave');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 
+const parseYMD = (dateStr) => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return { year, month, day };
+};
+
+const toYMD = (date) => {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const eachDateInRange = (startDate, endDate) => {
+  const s = parseYMD(startDate);
+  const e = parseYMD(endDate);
+  const start = new Date(Date.UTC(s.year, s.month - 1, s.day));
+  const end = new Date(Date.UTC(e.year, e.month - 1, e.day));
+  const dates = [];
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    dates.push(toYMD(d));
+  }
+  return dates;
+};
+
 // Helper to update leave balances month-over-month
 const processLeaveAccrual = async (user) => {
   const now = new Date();
@@ -118,13 +142,10 @@ exports.updateLeaveStatus = async (req, res, next) => {
 
     // If approved, update attendance records for those dates
     if (status === 'Approved') {
-      const start = new Date(leave.startDate);
-      const end = new Date(leave.endDate);
+      const dates = eachDateInRange(leave.startDate, leave.endDate);
       
       // Iterate through each day in the range
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
-        
+      for (const dateStr of dates) {
         // Upsert attendance record for each day in range to mark as 'Leave' or 'Half Day'
         await Attendance.findOneAndUpdate(
           { userId: leave.userId, date: dateStr },
@@ -139,7 +160,7 @@ exports.updateLeaveStatus = async (req, res, next) => {
       // SUBTRACT FROM BALANCE
       const user = await User.findById(leave.userId);
       if (user) {
-        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        const days = dates.length;
         if (leave.type === 'Casual') {
           user.casualLeaveBalance = Math.max(0, user.casualLeaveBalance - days);
         } else if (leave.type === 'Half Day (Casual)') {
@@ -194,9 +215,8 @@ exports.cancelLeave = async (req, res, next) => {
 
     // Rollback logic for Approved leaves
     if (previousStatus === 'Approved') {
-      const start = new Date(leave.startDate);
-      const end = new Date(leave.endDate);
-      const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+      const dates = eachDateInRange(leave.startDate, leave.endDate);
+      const days = dates.length;
 
       // 1. Restore balance
       const user = await User.findById(leave.userId);
@@ -212,8 +232,7 @@ exports.cancelLeave = async (req, res, next) => {
       }
 
       // 2. Clear attendance markers
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
+      for (const dateStr of dates) {
         // Delete the 'Leave' entry for this user on this date
         const statusToRemove = leave.type === 'Half Day (Casual)' ? 'Half Day' : 'Leave';
         await Attendance.findOneAndDelete({ userId: leave.userId, date: dateStr, status: statusToRemove });

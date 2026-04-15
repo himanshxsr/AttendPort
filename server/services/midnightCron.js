@@ -3,8 +3,9 @@ const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const WorkSession = require('../models/WorkSession');
 const Holiday = require('../models/Holiday');
+const Leave = require('../models/Leave');
 const { calculateStatus } = require('../controllers/attendanceController');
-const { getISTDateString } = require('../utils/dateUtils');
+const { getISTDateString, getISTEndOfDayUTC } = require('../utils/dateUtils');
 
 /**
  * Midnight Cron Job
@@ -28,7 +29,7 @@ const initMidnightCron = () => {
       // 2. Auto-Checkout dangling sessions
       // Find all work sessions for yesterday that never ended
       const openSessions = await WorkSession.find({
-        endTime: { $exists: false }
+        $or: [{ endTime: { $exists: false } }, { endTime: null }]
       }).populate({
         path: 'attendanceId',
         match: { date: dateStr }
@@ -38,8 +39,7 @@ const initMidnightCron = () => {
       
       if (filteredSessions.length > 0) {
         console.log(`🌙 Midnight Automation: Closing ${filteredSessions.length} active sessions for ${dateStr}...`);
-        const manualEndTime = new Date(yesterday);
-        manualEndTime.setHours(23, 59, 59, 999);
+        const manualEndTime = getISTEndOfDayUTC(dateStr);
 
         for (const session of filteredSessions) {
           session.endTime = manualEndTime;
@@ -63,6 +63,12 @@ const initMidnightCron = () => {
 
       for (const user of users) {
         let attendance = await Attendance.findOne({ userId: user._id, date: dateStr });
+        const approvedLeave = await Leave.findOne({
+          userId: user._id,
+          status: 'Approved',
+          startDate: { $lte: dateStr },
+          endDate: { $gte: dateStr }
+        });
 
         if (attendance) {
           // If record exists, recalculate hours and set status
@@ -78,13 +84,15 @@ const initMidnightCron = () => {
           
           // Ensure checkOut is visible on the dashboard if it was closed by automation
           if (!attendance.checkOut) {
-            const manualEndTime = new Date(yesterday);
-            manualEndTime.setHours(23, 59, 59, 999);
-            attendance.checkOut = manualEndTime;
+            attendance.checkOut = getISTEndOfDayUTC(dateStr);
           }
 
-          // Only finalize if status is currently empty or incorrectly marked
-          if (!attendance.status || attendance.status === '') {
+          // Approved leave should be respected for zero-hour records.
+          // Do not overwrite worked records to avoid data loss.
+          if (approvedLeave && (attendance.totalHours || 0) === 0) {
+            attendance.status = approvedLeave.type === 'Half Day (Casual)' ? 'Half Day' : 'Leave';
+            attendance.totalHours = approvedLeave.type === 'Half Day (Casual)' ? 4.5 : 0;
+          } else if (!attendance.status || attendance.status === '') {
             attendance.status = calculateStatus(dateStr, attendance.totalHours);
           }
           
@@ -92,13 +100,19 @@ const initMidnightCron = () => {
           // Sync leave balance for finalized existing records
           await require('../controllers/attendanceController').syncLeaveBalance(user._id, attendance._id);
         } else {
-          // If no record exists, and it's NOT a holiday/weekend, mark as Absent
+          // If no record exists:
+          // - mark approved leave as Leave/Half Day
+          // - otherwise mark Absent (except weekend/holiday)
           if (!isWeekend && !holiday) {
+            const status = approvedLeave
+              ? (approvedLeave.type === 'Half Day (Casual)' ? 'Half Day' : 'Leave')
+              : 'Absent';
+            const totalHours = approvedLeave && approvedLeave.type === 'Half Day (Casual)' ? 4.5 : 0;
             const newAttendance = await Attendance.create({
               userId: user._id,
               date: dateStr,
-              status: 'Absent',
-              totalHours: 0
+              status,
+              totalHours
             });
             // Sync leave balance for new automated Absent records
             await require('../controllers/attendanceController').syncLeaveBalance(user._id, newAttendance._id);

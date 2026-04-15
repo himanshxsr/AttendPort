@@ -1,7 +1,7 @@
 const Attendance = require('../models/Attendance');
 const WorkSession = require('../models/WorkSession');
 const User = require('../models/User');
-const { getISTDateString } = require('../utils/dateUtils');
+const { getISTDateString, getISTEndOfDayUTC } = require('../utils/dateUtils');
 
 /**
  * Helper to calculate attendance status based on day of week and total hours.
@@ -91,9 +91,8 @@ const cleanupStaleSessions = async (userId) => {
       const attendance = await Attendance.findById(session.attendanceId._id);
       if (attendance) {
         const uId = attendance.userId;
-        // Close at the end of that specific day
-        const [year, month, day] = attendance.date.split('-').map(Number);
-        const manualEndTime = new Date(year, month - 1, day, 23, 59, 59, 999);
+        // Close at end-of-day in IST, stored as correct UTC instant
+        const manualEndTime = getISTEndOfDayUTC(attendance.date);
         
         session.endTime = manualEndTime;
         await session.save();
