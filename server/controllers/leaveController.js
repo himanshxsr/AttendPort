@@ -1,6 +1,8 @@
 const Leave = require('../models/Leave');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
+const { getISTDateString } = require('../utils/dateUtils');
+const { syncLeaveBalance } = require('./attendanceController');
 
 const parseYMD = (dateStr) => {
   const [year, month, day] = dateStr.split('-').map(Number);
@@ -135,41 +137,61 @@ exports.updateLeaveStatus = async (req, res, next) => {
       return res.status(404).json({ message: 'Leave request not found' });
     }
 
+    const previousStatus = leave.status;
     leave.status = status;
     leave.processedBy = req.user._id;
     leave.processedAt = Date.now();
+    if (status !== 'Approved') {
+      leave.attendanceBackup = [];
+    }
     await leave.save();
 
     // If approved, update attendance records for those dates
-    if (status === 'Approved') {
+    if (status === 'Approved' && previousStatus !== 'Approved') {
       const dates = eachDateInRange(leave.startDate, leave.endDate);
+      const backups = [];
       
       // Iterate through each day in the range
       for (const dateStr of dates) {
-        // Upsert attendance record for each day in range to mark as 'Leave' or 'Half Day'
-        await Attendance.findOneAndUpdate(
+        const existing = await Attendance.findOne({ userId: leave.userId, date: dateStr });
+        backups.push({
+          date: dateStr,
+          existed: !!existing,
+          data: existing ? {
+            status: existing.status,
+            totalHours: existing.totalHours,
+            checkIn: existing.checkIn || null,
+            checkOut: existing.checkOut || null,
+            leaveDeducted: existing.leaveDeducted || 0,
+            leaveDeductedType: existing.leaveDeductedType || 'none'
+          } : null
+        });
+
+        // Never overwrite worked day data; this prevents data loss.
+        const hasWorkedData = existing && (
+          (existing.totalHours || 0) > 0 ||
+          !!existing.checkIn ||
+          !!existing.checkOut
+        );
+        if (hasWorkedData) continue;
+
+        const updated = await Attendance.findOneAndUpdate(
           { userId: leave.userId, date: dateStr },
           { 
-            status: leave.type === 'Half Day (Casual)' ? 'Half Day' : 'Leave', 
-            totalHours: leave.type === 'Half Day (Casual)' ? 4.5 : 0 
+            status: leave.type === 'Half Day (Casual)' ? 'Half Day' : 'Leave',
+            totalHours: leave.type === 'Half Day (Casual)' ? 4.5 : 0,
+            checkIn: null,
+            checkOut: null
           },
           { upsert: true, new: true }
         );
-      }
 
-      // SUBTRACT FROM BALANCE
-      const user = await User.findById(leave.userId);
-      if (user) {
-        const days = dates.length;
-        if (leave.type === 'Casual') {
-          user.casualLeaveBalance = Math.max(0, user.casualLeaveBalance - days);
-        } else if (leave.type === 'Half Day (Casual)') {
-          user.casualLeaveBalance = Math.max(0, user.casualLeaveBalance - (days * 0.5));
-        } else if (leave.type === 'Sick') {
-          user.sickLeaveBalance = Math.max(0, user.sickLeaveBalance - days);
+        if (updated?._id) {
+          await syncLeaveBalance(leave.userId, updated._id);
         }
-        await user.save();
       }
+      leave.attendanceBackup = backups;
+      await leave.save();
     } else if (status === 'Rejected' || status === 'Pending') {
       // Logic for changing status from Approved back to something else
       // Ideally, recalculate attendance, but for now we focus on the approval flow
@@ -204,7 +226,7 @@ exports.cancelLeave = async (req, res, next) => {
 
     // Restriction: Employees should not be able to cancel a leave that happened in the past
     // Only allow cancelling future leaves (start today or later)
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getISTDateString();
     if (leave.startDate < todayStr) {
       return res.status(400).json({ message: 'Cannot cancel a leave that has already started or passed' });
     }
@@ -216,27 +238,37 @@ exports.cancelLeave = async (req, res, next) => {
     // Rollback logic for Approved leaves
     if (previousStatus === 'Approved') {
       const dates = eachDateInRange(leave.startDate, leave.endDate);
-      const days = dates.length;
+      const backupByDate = new Map((leave.attendanceBackup || []).map((item) => [item.date, item]));
 
-      // 1. Restore balance
-      const user = await User.findById(leave.userId);
-      if (user) {
-        if (leave.type === 'Casual') {
-          user.casualLeaveBalance += days;
-        } else if (leave.type === 'Half Day (Casual)') {
-          user.casualLeaveBalance += (days * 0.5);
-        } else if (leave.type === 'Sick') {
-          user.sickLeaveBalance += days;
-        }
-        await user.save();
-      }
-
-      // 2. Clear attendance markers
       for (const dateStr of dates) {
-        // Delete the 'Leave' entry for this user on this date
-        const statusToRemove = leave.type === 'Half Day (Casual)' ? 'Half Day' : 'Leave';
-        await Attendance.findOneAndDelete({ userId: leave.userId, date: dateStr, status: statusToRemove });
+        const backup = backupByDate.get(dateStr);
+        const current = await Attendance.findOne({ userId: leave.userId, date: dateStr });
+        if (!current) continue;
+
+        if (backup?.existed && backup.data) {
+          current.status = backup.data.status || '';
+          current.totalHours = backup.data.totalHours || 0;
+          current.checkIn = backup.data.checkIn || null;
+          current.checkOut = backup.data.checkOut || null;
+          current.leaveDeducted = backup.data.leaveDeducted || 0;
+          current.leaveDeductedType = backup.data.leaveDeductedType || 'none';
+          await current.save();
+          await syncLeaveBalance(leave.userId, current._id);
+          continue;
+        }
+
+        const createdByLeave = (
+          (current.status === 'Leave' || current.status === 'Half Day') &&
+          !current.checkIn &&
+          !current.checkOut &&
+          (current.totalHours || 0) <= 4.5
+        );
+        if (createdByLeave) {
+          await current.deleteOne();
+        }
       }
+      leave.attendanceBackup = [];
+      await leave.save();
     }
 
     res.json({ message: 'Leave cancelled successfully', leave });

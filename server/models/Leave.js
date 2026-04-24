@@ -39,6 +39,11 @@ const leaveSchema = new mongoose.Schema({
   processedAt: {
     type: Date,
   },
+  attendanceBackup: [{
+    date: { type: String, required: true },
+    existed: { type: Boolean, default: false },
+    data: { type: Object, default: null }
+  }]
 });
 
 module.exports = mongoose.model('Leave', leaveSchema);

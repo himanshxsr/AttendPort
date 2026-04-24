@@ -1,7 +1,27 @@
 import React from 'react';
 
+/**
+ * Google Drive "share" and "open" URLs are HTML pages, not image streams.
+ * Browsers need a direct file URL. Normalizes common Drive link shapes.
+ * File must be shared as "Anyone with the link" (Viewer) for unauthenticated requests.
+ */
+function toDirectImageUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  const trimmed = url.trim();
+  const fileIdFromPath = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileIdFromPath) {
+    return `https://drive.google.com/uc?export=view&id=${fileIdFromPath[1]}`;
+  }
+  const idParam = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (trimmed.includes('drive.google.com') && idParam) {
+    return `https://drive.google.com/uc?export=view&id=${idParam[1]}`;
+  }
+  return trimmed;
+}
+
 const UserAvatar = ({ user, size = 'md', className = '' }) => {
   const { name, avatar } = user || {};
+  const imageSrc = avatar ? toDirectImageUrl(avatar) : null;
   
   // Get initials (e.g., "Himanshu Aashish" -> "HA")
   const getInitials = (name) => {
@@ -54,11 +74,11 @@ const UserAvatar = ({ user, size = 'md', className = '' }) => {
     flexShrink: 0,
   };
 
-  if (avatar) {
+  if (imageSrc) {
     return (
       <div style={avatarStyle} className={className}>
         <img 
-          src={avatar} 
+          src={imageSrc} 
           alt={name} 
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           onError={(e) => {

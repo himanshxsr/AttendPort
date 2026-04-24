@@ -1,6 +1,30 @@
 const Payslip = require('../models/Payslip');
 const User = require('../models/User');
 
+const MONTH_ORDER = {
+  january: 1,
+  february: 2,
+  march: 3,
+  april: 4,
+  may: 5,
+  june: 6,
+  july: 7,
+  august: 8,
+  september: 9,
+  october: 10,
+  november: 11,
+  december: 12
+};
+
+const monthToNumber = (month) => MONTH_ORDER[String(month || '').toLowerCase()] || 0;
+
+const sortPayslipsChronologically = (payslips) => {
+  return [...payslips].sort((a, b) => {
+    if (b.year !== a.year) return b.year - a.year;
+    return monthToNumber(b.month) - monthToNumber(a.month);
+  });
+};
+
 // @desc    Generate or update a payslip (Admin)
 // @route   POST /api/admin/generate-payslip
 // @access  Private/Admin
@@ -80,8 +104,8 @@ exports.adminGetAllPayslips = async (req, res, next) => {
   try {
     const payslips = await Payslip.find({})
       .populate('userId', 'name email avatar')
-      .sort({ year: -1, month: -1 });
-    res.json(payslips);
+      .lean();
+    res.json(sortPayslipsChronologically(payslips));
   } catch (error) {
     next(error);
   }
@@ -92,9 +116,8 @@ exports.adminGetAllPayslips = async (req, res, next) => {
 // @access  Private
 exports.getMyPayslips = async (req, res, next) => {
   try {
-    const payslips = await Payslip.find({ userId: req.user._id })
-      .sort({ year: -1, month: -1 });
-    res.json(payslips);
+    const payslips = await Payslip.find({ userId: req.user._id }).lean();
+    res.json(sortPayslipsChronologically(payslips));
   } catch (error) {
     next(error);
   }

@@ -1,0 +1,32 @@
+[
+  {
+    "_id": "69d98078f00cc1f6d3a2c40c",
+    "userId": "69d95f1a418b730cf4c19abf",
+    "leaveType": "Casual",
+    "startDate": "2026-04-10",
+    "endDate": "2026-04-12",
+    "reason": "Family Emergency",
+    "status": "Approved",
+    "__v": 0
+  },
+  {
+    "_id": "69d98078f00cc1f6d3a2c40d",
+    "userId": "69d965112009e4d59891cdb6",
+    "leaveType": "Sick",
+    "startDate": "2026-04-15",
+    "endDate": "2026-04-15",
+    "reason": "Medical Checkup",
+    "status": "Pending",
+    "__v": 0
+  },
+  {
+    "_id": "69d98078f00cc1f6d3a2c40e",
+    "userId": "69d965122009e4d59891cdba",
+    "leaveType": "Casual",
+    "startDate": "2026-04-05",
+    "endDate": "2026-04-05",
+    "reason": "Personal work",
+    "status": "Cancelled",
+    "__v": 0
+  }
+]

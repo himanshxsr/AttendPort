@@ -17,6 +17,7 @@ const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [holidays, setHolidays] = useState([]);
   const [activeView, setActiveView] = useState('summary'); // 'summary', 'calendar', or 'leaves'
   const [selectedDateLog, setSelectedDateLog] = useState(null);
@@ -93,7 +94,9 @@ const DashboardPage = () => {
     try {
       await API.post('/attendance/apply-leave', leaveForm);
       setLeaveForm({ type: 'Sick', startDate: '', endDate: '', reason: '' });
-      setMessage({ type: 'success', text: 'Leave application submitted successfully!' });
+      setError('');
+      setSuccess('Leave application submitted successfully!');
+      setTimeout(() => setSuccess(''), 4000);
       await fetchData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to apply for leave');
@@ -415,6 +418,20 @@ const DashboardPage = () => {
               {error}
             </div>
           )}
+          {success && (
+            <div style={{
+              textAlign: 'center',
+              color: 'var(--accent-emerald)',
+              background: 'rgba(16, 185, 129, 0.12)',
+              padding: '0.75rem',
+              borderRadius: '0.75rem',
+              marginTop: '1rem',
+              fontSize: '0.875rem',
+              fontWeight: 500,
+            }}>
+              {success}
+            </div>
+          )}
 
           <div style={{
             display: 'flex',
@@ -620,7 +637,7 @@ const DashboardPage = () => {
                               {leave.status.toUpperCase()}
                             </span>
                             {(leave.status === 'Pending' || leave.status === 'Approved') && 
-                             leave.startDate >= new Date().toISOString().split('T')[0] && (
+                             leave.startDate >= getISTDateString() && (
                               <button
                                 onClick={() => handleCancelLeave(leave._id)}
                                 style={{

@@ -1,6 +1,7 @@
 const Attendance = require('../models/Attendance');
 const WorkSession = require('../models/WorkSession');
 const User = require('../models/User');
+const Leave = require('../models/Leave');
 const { getISTDateString, getISTEndOfDayUTC } = require('../utils/dateUtils');
 
 /**
@@ -39,29 +40,65 @@ const syncLeaveBalance = async (userId, attendanceId) => {
     if (!attendance || !user) return;
 
     let targetDeduction = 0;
-    if (attendance.status === 'Absent' || attendance.status === 'Leave') targetDeduction = 1;
-    if (attendance.status === 'Half Day') targetDeduction = 0.5;
+    let targetBucket = 'none';
+
+    if (attendance.status === 'Absent') {
+      targetDeduction = 1;
+      targetBucket = 'casual';
+    } else if (attendance.status === 'Half Day') {
+      targetDeduction = 0.5;
+      targetBucket = 'casual';
+    } else if (attendance.status === 'Leave') {
+      const approvedLeave = await Leave.findOne({
+        userId,
+        status: 'Approved',
+        startDate: { $lte: attendance.date },
+        endDate: { $gte: attendance.date }
+      });
+      if (approvedLeave?.type === 'Sick') {
+        targetDeduction = 1;
+        targetBucket = 'sick';
+      } else {
+        targetDeduction = 1;
+        targetBucket = 'casual';
+      }
+    }
 
     const previousDeduction = attendance.leaveDeducted || 0;
-    
-    // If deduction matches what we already took, skip
-    if (targetDeduction === previousDeduction) return;
+    const previousBucket = attendance.leaveDeductedType || 'none';
 
-    // Refund previous deduction first
-    let currentBalance = (user.casualLeaveBalance || 0) + previousDeduction;
+    if (targetDeduction === previousDeduction && targetBucket === previousBucket) return;
 
-    // Determine actual amount we CAN deduct (don't go below 0)
-    let actualDeduction = Math.min(targetDeduction, currentBalance);
+    // Refund previous deduction first to the same bucket it came from.
+    if (previousDeduction > 0) {
+      if (previousBucket === 'sick') {
+        user.sickLeaveBalance = +((user.sickLeaveBalance || 0) + previousDeduction).toPrecision(4);
+      } else if (previousBucket === 'casual') {
+        user.casualLeaveBalance = +((user.casualLeaveBalance || 0) + previousDeduction).toPrecision(4);
+      }
+    }
 
-    // Update user balance
-    user.casualLeaveBalance = +(currentBalance - actualDeduction).toPrecision(4);
+    let actualDeduction = 0;
+    if (targetDeduction > 0) {
+      if (targetBucket === 'sick') {
+        const currentSick = user.sickLeaveBalance || 0;
+        actualDeduction = Math.min(targetDeduction, currentSick);
+        user.sickLeaveBalance = +(currentSick - actualDeduction).toPrecision(4);
+      } else if (targetBucket === 'casual') {
+        const currentCasual = user.casualLeaveBalance || 0;
+        actualDeduction = Math.min(targetDeduction, currentCasual);
+        user.casualLeaveBalance = +(currentCasual - actualDeduction).toPrecision(4);
+      }
+    }
+
     await user.save();
 
     // Update attendance record with what we actually took
     attendance.leaveDeducted = actualDeduction;
+    attendance.leaveDeductedType = actualDeduction > 0 ? targetBucket : 'none';
     await attendance.save();
 
-    console.log(`SyncLeaveBalance: ${user.name} for ${attendance.date}. Status: ${attendance.status}, Deduction: ${actualDeduction}`);
+    console.log(`SyncLeaveBalance: ${user.name} for ${attendance.date}. Status: ${attendance.status}, Deduction: ${actualDeduction} (${attendance.leaveDeductedType})`);
   } catch (error) {
     console.error('SyncLeaveBalance Error:', error.message);
   }
@@ -161,6 +198,18 @@ exports.checkIn = async (req, res, next) => {
       });
     }
 
+    // Block duplicate open sessions for the same day
+    const existingOpenSession = await WorkSession.findOne({
+      attendanceId: attendance._id,
+      $or: [{ endTime: { $exists: false } }, { endTime: null }]
+    });
+
+    if (existingOpenSession) {
+      return res.status(400).json({
+        message: 'You already have an active session. Please check out first.',
+      });
+    }
+
     // 3. Create a new work session start
     const workSession = await WorkSession.create({
       attendanceId: attendance._id,
@@ -190,7 +239,7 @@ exports.checkOut = async (req, res, next) => {
     // Find the latest open work session
     const workSession = await WorkSession.findOne({
       attendanceId: attendance._id,
-      endTime: { $exists: false },
+      $or: [{ endTime: { $exists: false } }, { endTime: null }],
     }).sort({ startTime: -1 });
 
     if (!workSession) {

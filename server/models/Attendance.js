@@ -28,6 +28,11 @@ const attendanceSchema = new mongoose.Schema({
   leaveDeducted: {
     type: Number,
     default: 0
+  },
+  leaveDeductedType: {
+    type: String,
+    enum: ['casual', 'sick', 'none'],
+    default: 'none'
   }
 });
 

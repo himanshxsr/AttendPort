@@ -1,0 +1,41 @@
+{
+  "createdAt": "2026-04-24T08:32:13.729Z",
+  "database": "attendance-portal",
+  "collections": [
+    {
+      "name": "leaverequests",
+      "count": 3,
+      "file": "leaverequests.json"
+    },
+    {
+      "name": "payslips",
+      "count": 3,
+      "file": "payslips.json"
+    },
+    {
+      "name": "leaves",
+      "count": 10,
+      "file": "leaves.json"
+    },
+    {
+      "name": "worksessions",
+      "count": 93,
+      "file": "worksessions.json"
+    },
+    {
+      "name": "attendances",
+      "count": 107,
+      "file": "attendances.json"
+    },
+    {
+      "name": "users",
+      "count": 6,
+      "file": "users.json"
+    },
+    {
+      "name": "holidays",
+      "count": 0,
+      "file": "holidays.json"
+    }
+  ]
+}

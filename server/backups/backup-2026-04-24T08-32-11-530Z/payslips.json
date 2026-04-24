@@ -1,0 +1,71 @@
+[
+  {
+    "_id": "69d9811003499d85bb952b53",
+    "userId": "69d95f1a418b730cf4c19abf",
+    "month": "March",
+    "year": 2026,
+    "earnings": {
+      "basic": 50000,
+      "hra": 20000,
+      "conveyance": 5000,
+      "other": 10000
+    },
+    "deductions": {
+      "pf": 3000,
+      "esi": 1000,
+      "pt": 200,
+      "other": 800
+    },
+    "totalEarnings": 85000,
+    "totalDeductions": 5000,
+    "netPay": 80000,
+    "status": "Paid",
+    "__v": 0
+  },
+  {
+    "_id": "69d9811003499d85bb952b55",
+    "userId": "69d965122009e4d59891cdba",
+    "month": "March",
+    "year": 2026,
+    "earnings": {
+      "basic": 40000,
+      "hra": 15000,
+      "conveyance": 5000,
+      "other": 5000
+    },
+    "deductions": {
+      "pf": 2500,
+      "esi": 1000,
+      "pt": 200,
+      "other": 300
+    },
+    "totalEarnings": 65000,
+    "totalDeductions": 4000,
+    "netPay": 61000,
+    "status": "Paid",
+    "__v": 0
+  },
+  {
+    "_id": "69d9811003499d85bb952b54",
+    "userId": "69d965112009e4d59891cdb6",
+    "month": "March",
+    "year": 2026,
+    "earnings": {
+      "basic": 40000,
+      "hra": 15000,
+      "conveyance": 5000,
+      "other": 5000
+    },
+    "deductions": {
+      "pf": 2500,
+      "esi": 1000,
+      "pt": 200,
+      "other": 300
+    },
+    "totalEarnings": 65000,
+    "totalDeductions": 4000,
+    "netPay": 61000,
+    "status": "Paid",
+    "__v": 0
+  }
+]
