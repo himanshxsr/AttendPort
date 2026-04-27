@@ -286,7 +286,7 @@ exports.updateUserProfile = async (req, res, next) => {
     }
 
     const profileFields = [
-      'employeeCode', 'designation', 'location', 'pan', 'sex',
+      'employeeCode', 'designation', 'location', 'address', 'pan', 'sex',
       'accountNumber', 'bankName', 'nameInBank', 'ifscCode', 'pfAccountNumber', 'pfUAN',
       'esiNumber', 'joiningDate', 'leavingDate', 'taxRegime',
       'dateOfBirth', 'contactNo', 'nationality', 'aadharNumber',

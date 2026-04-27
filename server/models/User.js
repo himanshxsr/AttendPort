@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema({
   employeeCode: { type: String, unique: true, sparse: true },
   designation: { type: String },
   location: { type: String },
+  address: { type: String },
   pan: { type: String },
   sex: { type: String },
   accountNumber: { type: String },

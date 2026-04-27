@@ -54,7 +54,7 @@ const AdminPage = () => {
   const [selectedUserForProfile, setSelectedUserForProfile] = useState(null);
   const [profileForm, setProfileForm] = useState({
     email: '',
-    employeeCode: '', designation: '', location: '', pan: '', sex: '',
+    employeeCode: '', designation: '', location: '', address: '', pan: '', sex: '',
     accountNumber: '', bankName: '', nameInBank: '', ifscCode: '', pfAccountNumber: '', pfUAN: '',
     esiNumber: '', joiningDate: '', leavingDate: '', taxRegime: '',
     dateOfBirth: '', contactNo: '', nationality: '', aadharNumber: '',
@@ -75,6 +75,12 @@ const AdminPage = () => {
   });
   const [exportFormat, setExportFormat] = useState('xlsx');
   const [exportLoading, setExportLoading] = useState(false);
+  const [historyEmployeeId, setHistoryEmployeeId] = useState('');
+  const [historyPeriodType, setHistoryPeriodType] = useState('quarterly');
+  const [historyYear, setHistoryYear] = useState(() => String(new Date().getFullYear()));
+  const [historyQuarter, setHistoryQuarter] = useState(() => String(Math.floor(new Date().getMonth() / 3) + 1));
+  const [historyFormat, setHistoryFormat] = useState('xlsx');
+  const [historyExportLoading, setHistoryExportLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -241,6 +247,65 @@ const AdminPage = () => {
     }
   };
 
+  const handleExportEmployeeHistory = async (e) => {
+    e?.preventDefault?.();
+    if (!historyEmployeeId) {
+      setMessage({ type: 'error', text: 'Please select an employee.' });
+      return;
+    }
+    if (!/^\d{4}$/.test(historyYear)) {
+      setMessage({ type: 'error', text: 'Please enter a valid year (YYYY).' });
+      return;
+    }
+    if (historyPeriodType === 'quarterly' && !['1', '2', '3', '4'].includes(historyQuarter)) {
+      setMessage({ type: 'error', text: 'Please select a valid quarter.' });
+      return;
+    }
+
+    setHistoryExportLoading(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const params = {
+        userId: historyEmployeeId,
+        periodType: historyPeriodType,
+        year: historyYear,
+        format: historyFormat,
+      };
+      if (historyPeriodType === 'quarterly') params.quarter = historyQuarter;
+
+      const res = await API.get('/admin/export/employee-history', {
+        params,
+        responseType: 'blob',
+      });
+      const ext = historyFormat === 'xlsx' ? 'xlsx' : 'pdf';
+      const periodToken = historyPeriodType === 'quarterly' ? `Q${historyQuarter}` : 'annual';
+      const name = `employee-history-${historyEmployeeId}-${periodToken}-${historyYear}.${ext}`;
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      setMessage({ type: 'success', text: 'Employee history export download started.' });
+    } catch (err) {
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const j = JSON.parse(text);
+          setMessage({ type: 'error', text: j.message || 'Employee history export failed' });
+        } catch {
+          setMessage({ type: 'error', text: 'Employee history export failed' });
+        }
+      } else {
+        setMessage({ type: 'error', text: err.response?.data?.message || 'Employee history export failed' });
+      }
+    } finally {
+      setHistoryExportLoading(false);
+    }
+  };
+
   const openProfileModal = (user) => {
     setSelectedUserForProfile(user);
     setProfileForm({
@@ -248,6 +313,7 @@ const AdminPage = () => {
       employeeCode: user.employeeCode || '',
       designation: user.designation || '',
       location: user.location || '',
+      address: user.address || '',
       pan: user.pan || '',
       sex: user.sex || '',
       accountNumber: user.accountNumber || '',
@@ -1529,6 +1595,10 @@ const AdminPage = () => {
                     <label className="label-style">Location</label>
                     <input type="text" className="input-field" value={profileForm.location} onChange={(e) => setProfileForm({...profileForm, location: e.target.value})} placeholder="e.g. New Delhi" />
                   </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label className="label-style">Address</label>
+                    <input type="text" className="input-field" value={profileForm.address} onChange={(e) => setProfileForm({...profileForm, address: e.target.value})} placeholder="Full residential address" />
+                  </div>
                   <div>
                     <label className="label-style">PAN Number</label>
                     <input type="text" className="input-field" value={profileForm.pan} onChange={(e) => setProfileForm({...profileForm, pan: e.target.value})} placeholder="ABCDE1234F" />
@@ -1731,6 +1801,10 @@ const AdminPage = () => {
                     <div>
                       <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Contact no.</label>
                       <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.contactNo || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Address</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.address || '--'}</span>
                     </div>
                     <div>
                       <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Nationality</label>
@@ -2256,58 +2330,145 @@ const AdminPage = () => {
         )}
 
         {activeTab === 'export' && (
-          <div className="glass-card" style={{ padding: '1.5rem', maxWidth: '640px' }}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Export attendance</h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              Download one row per employee per day (all active employees). Check-in / check-out shown in IST. Maximum range: 400 days.
-            </p>
-            <form onSubmit={handleExportAttendance} style={{ display: 'grid', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>From</label>
-                  <input
-                    type="date"
-                    className="input-field"
-                    value={exportFrom}
-                    onChange={(e) => setExportFrom(e.target.value)}
-                    required
-                    style={{ width: '100%' }}
-                  />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1rem' }}>
+            <div className="glass-card" style={{ padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Export attendance</h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+                Download one row per employee per day (all active employees). Check-in / check-out shown in IST. Maximum range: 400 days.
+              </p>
+              <form onSubmit={handleExportAttendance} style={{ display: 'grid', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>From</label>
+                    <input
+                      type="date"
+                      className="input-field"
+                      value={exportFrom}
+                      onChange={(e) => setExportFrom(e.target.value)}
+                      required
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>To</label>
+                    <input
+                      type="date"
+                      className="input-field"
+                      value={exportTo}
+                      onChange={(e) => setExportTo(e.target.value)}
+                      required
+                      style={{ width: '100%' }}
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>To</label>
-                  <input
-                    type="date"
+                  <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>File format</label>
+                  <select
                     className="input-field"
-                    value={exportTo}
-                    onChange={(e) => setExportTo(e.target.value)}
-                    required
-                    style={{ width: '100%' }}
-                  />
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    style={{ maxWidth: '280px' }}
+                  >
+                    <option value="xlsx">Excel (.xlsx)</option>
+                    <option value="pdf">PDF (.pdf)</option>
+                  </select>
                 </div>
-              </div>
-              <div>
-                <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>File format</label>
-                <select
-                  className="input-field"
-                  value={exportFormat}
-                  onChange={(e) => setExportFormat(e.target.value)}
-                  style={{ maxWidth: '280px' }}
+                <button
+                  type="submit"
+                  className="btn-gradient"
+                  disabled={exportLoading}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', maxWidth: '220px' }}
                 >
-                  <option value="xlsx">Excel (.xlsx)</option>
-                  <option value="pdf">PDF (.pdf)</option>
-                </select>
-              </div>
-              <button
-                type="submit"
-                className="btn-gradient"
-                disabled={exportLoading}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', maxWidth: '220px' }}
-              >
-                <Download size={18} />
-                {exportLoading ? 'Preparing…' : 'Download'}
-              </button>
-            </form>
+                  <Download size={18} />
+                  {exportLoading ? 'Preparing…' : 'Download'}
+                </button>
+              </form>
+            </div>
+
+            <div className="glass-card" style={{ padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Individual employee history</h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+                Export quarterly or annual attendance history for one employee with summary metrics (attendance %, present/absent/leave, average hours) for reviews and dispute handling.
+              </p>
+              <form onSubmit={handleExportEmployeeHistory} style={{ display: 'grid', gap: '1rem' }}>
+                <div>
+                  <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>Employee</label>
+                  <select
+                    className="input-field"
+                    value={historyEmployeeId}
+                    onChange={(e) => setHistoryEmployeeId(e.target.value)}
+                    required
+                  >
+                    <option value="">Select employee</option>
+                    {users.map((u) => (
+                      <option key={u._id} value={u._id}>
+                        {u.name} ({u.employeeCode || 'No code'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>Range</label>
+                    <select
+                      className="input-field"
+                      value={historyPeriodType}
+                      onChange={(e) => setHistoryPeriodType(e.target.value)}
+                    >
+                      <option value="quarterly">Quarterly</option>
+                      <option value="annual">Annually</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>Year</label>
+                    <input
+                      type="number"
+                      min="2000"
+                      max="2100"
+                      className="input-field"
+                      value={historyYear}
+                      onChange={(e) => setHistoryYear(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>Quarter</label>
+                    <select
+                      className="input-field"
+                      value={historyQuarter}
+                      onChange={(e) => setHistoryQuarter(e.target.value)}
+                      disabled={historyPeriodType !== 'quarterly'}
+                    >
+                      <option value="1">Q1</option>
+                      <option value="2">Q2</option>
+                      <option value="3">Q3</option>
+                      <option value="4">Q4</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>File format</label>
+                  <select
+                    className="input-field"
+                    value={historyFormat}
+                    onChange={(e) => setHistoryFormat(e.target.value)}
+                    style={{ maxWidth: '280px' }}
+                  >
+                    <option value="xlsx">Excel (.xlsx)</option>
+                    <option value="pdf">PDF (.pdf)</option>
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="btn-gradient"
+                  disabled={historyExportLoading}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', maxWidth: '280px' }}
+                >
+                  <Download size={18} />
+                  {historyExportLoading ? 'Preparing employee report…' : 'Download Employee History'}
+                </button>
+              </form>
+            </div>
           </div>
         )}
 

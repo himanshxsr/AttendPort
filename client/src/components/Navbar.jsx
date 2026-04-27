@@ -359,6 +359,16 @@ const Navbar = () => {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <div style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.03)', padding: '0.625rem', borderRadius: '0.75rem' }}>
+                    <MapPin size={18} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Address</p>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{user?.address || '—'}</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.03)', padding: '0.625rem', borderRadius: '0.75rem' }}>
                     <Calendar size={18} />
                   </div>
                   <div>

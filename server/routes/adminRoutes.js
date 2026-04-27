@@ -13,7 +13,7 @@ const {
   markManualAttendance,
   updateUserProfile,
 } = require('../controllers/adminController');
-const { exportAttendance } = require('../controllers/attendanceExportController');
+const { exportAttendance, exportEmployeeHistory } = require('../controllers/attendanceExportController');
 const { getAllLeaves, updateLeaveStatus } = require('../controllers/leaveController');
 const { adminGeneratePayslip, adminGetAllPayslips, adminDeletePayslip } = require('../controllers/payslipController');
 const { protect, admin } = require('../middleware/authMiddleware');
@@ -24,6 +24,7 @@ router.use(admin);
 
 router.get('/all-attendance', getAllAttendance);
 router.get('/export/attendance', exportAttendance);
+router.get('/export/employee-history', exportEmployeeHistory);
 router.get('/users', getAllUsers);
 router.get('/deleted-users', getDeletedUsers);
 router.post('/add-employee', addEmployee);
