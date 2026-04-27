@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { LogOut, Clock, Shield, User, Menu, X, Mail, MapPin, Briefcase, Calendar, CreditCard, Info, Fingerprint, Phone, Activity } from 'lucide-react';
+import { LogOut, Clock, Shield, User, Menu, X, Mail, MapPin, Briefcase, Calendar, Info, Fingerprint, Phone, Activity, Globe, CreditCard, Landmark } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 
 const Navbar = () => {
@@ -17,6 +17,20 @@ const Navbar = () => {
   };
 
   const isActive = (path) => location.pathname === path;
+
+  const formatProfileDate = (v) => {
+    if (!v) return '—';
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return v;
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  const maskAadhar = (v) => {
+    if (!v) return '—';
+    const s = String(v).replace(/\s/g, '');
+    if (s.length < 4) return s;
+    return `••••${s.slice(-4)}`;
+  };
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -345,11 +359,63 @@ const Navbar = () => {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <div style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.03)', padding: '0.625rem', borderRadius: '0.75rem' }}>
+                    <Calendar size={18} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Date of birth</p>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{formatProfileDate(user?.dateOfBirth)}</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.03)', padding: '0.625rem', borderRadius: '0.75rem' }}>
                     <Phone size={18} />
                   </div>
                   <div>
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Emergency Contact</p>
-                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{user?.emergencyContact || '--'}</p>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Contact no.</p>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{user?.contactNo || '—'}</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.03)', padding: '0.625rem', borderRadius: '0.75rem' }}>
+                    <Globe size={18} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Nationality</p>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{user?.nationality || '—'}</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.03)', padding: '0.625rem', borderRadius: '0.75rem' }}>
+                    <CreditCard size={18} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Aadhaar number</p>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{maskAadhar(user?.aadharNumber)}</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.03)', padding: '0.625rem', borderRadius: '0.75rem' }}>
+                    <User size={18} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Emergency contact person</p>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>
+                      {[user?.emergencyContactPersonName, user?.emergencyContactPersonRelation].filter(Boolean).join(' · ') || '—'}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.03)', padding: '0.625rem', borderRadius: '0.75rem' }}>
+                    <Phone size={18} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Emergency contact (phone)</p>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{user?.emergencyContact || '—'}</p>
                   </div>
                 </div>
 
@@ -375,11 +441,24 @@ const Navbar = () => {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <div style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.03)', padding: '0.625rem', borderRadius: '0.75rem' }}>
+                    <Landmark size={18} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Name in bank & IFSC</p>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>
+                      {user?.nameInBank || '—'}
+                      {user?.ifscCode ? ` · ${user.ifscCode}` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.03)', padding: '0.625rem', borderRadius: '0.75rem' }}>
                     <Info size={18} />
                   </div>
                   <div>
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Account Info</p>
-                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{user?.bankName || 'Bank N/A'} • {user?.accountNumber ? `****${user.accountNumber.slice(-4)}` : 'No Account'}</p>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Account info</p>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{user?.bankName || 'Bank N/A'} • {user?.accountNumber ? `****${String(user.accountNumber).slice(-4)}` : 'No account'}</p>
                   </div>
                 </div>
 

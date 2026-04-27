@@ -3,7 +3,7 @@ import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import API from '../api/axios';
 import { formatDate, formatHours, getCompleteHistory } from '../utils/formatTime';
-import { Users, User, Calendar, BarChart3, Search, Trash2, X, Edit, Eye, Phone, Activity } from 'lucide-react';
+import { Users, User, Calendar, BarChart3, Search, Trash2, X, Edit, Eye, Phone, Activity, Download } from 'lucide-react';
 import AttendanceCalendar from '../components/AttendanceCalendar';
 import UserAvatar from '../components/UserAvatar';
 
@@ -54,14 +54,27 @@ const AdminPage = () => {
   const [selectedUserForProfile, setSelectedUserForProfile] = useState(null);
   const [profileForm, setProfileForm] = useState({
     email: '',
-    employeeCode: '', designation: '', location: '', pan: '', sex: '', 
-    accountNumber: '', bankName: '', pfAccountNumber: '', pfUAN: '', 
+    employeeCode: '', designation: '', location: '', pan: '', sex: '',
+    accountNumber: '', bankName: '', nameInBank: '', ifscCode: '', pfAccountNumber: '', pfUAN: '',
     esiNumber: '', joiningDate: '', leavingDate: '', taxRegime: '',
-    avatar: ''
+    dateOfBirth: '', contactNo: '', nationality: '', aadharNumber: '',
+    emergencyContactPersonName: '', emergencyContactPersonRelation: '',
+    avatar: '',
   });
 
   // Edit payslip state
   const [editingPayslipId, setEditingPayslipId] = useState(null);
+
+  const [exportFrom, setExportFrom] = useState(() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-01`;
+  });
+  const [exportTo, setExportTo] = useState(() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  });
+  const [exportFormat, setExportFormat] = useState('xlsx');
+  const [exportLoading, setExportLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -187,6 +200,47 @@ const AdminPage = () => {
     }
   };
 
+  const handleExportAttendance = async (e) => {
+    e?.preventDefault?.();
+    if (exportFrom > exportTo) {
+      setMessage({ type: 'error', text: 'From date must be on or before To date.' });
+      return;
+    }
+    setExportLoading(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const res = await API.get('/admin/export/attendance', {
+        params: { from: exportFrom, to: exportTo, format: exportFormat },
+        responseType: 'blob',
+      });
+      const ext = exportFormat === 'xlsx' ? 'xlsx' : 'pdf';
+      const name = `attendance-${exportFrom}-to-${exportTo}.${ext}`;
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      setMessage({ type: 'success', text: 'File download started.' });
+    } catch (err) {
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const j = JSON.parse(text);
+          setMessage({ type: 'error', text: j.message || 'Export failed' });
+        } catch {
+          setMessage({ type: 'error', text: 'Export failed' });
+        }
+      } else {
+        setMessage({ type: 'error', text: err.response?.data?.message || 'Export failed' });
+      }
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   const openProfileModal = (user) => {
     setSelectedUserForProfile(user);
     setProfileForm({
@@ -198,12 +252,20 @@ const AdminPage = () => {
       sex: user.sex || '',
       accountNumber: user.accountNumber || '',
       bankName: user.bankName || '',
+      nameInBank: user.nameInBank || '',
+      ifscCode: user.ifscCode || '',
       pfAccountNumber: user.pfAccountNumber || '',
       pfUAN: user.pfUAN || '',
       esiNumber: user.esiNumber || '',
       joiningDate: user.joiningDate || '',
       leavingDate: user.leavingDate || '',
       taxRegime: user.taxRegime || '',
+      dateOfBirth: user.dateOfBirth || '',
+      contactNo: user.contactNo || '',
+      nationality: user.nationality || '',
+      aadharNumber: user.aadharNumber || '',
+      emergencyContactPersonName: user.emergencyContactPersonName || '',
+      emergencyContactPersonRelation: user.emergencyContactPersonRelation || '',
       casualLeaveBalance: (user.casualLeaveBalance !== undefined && user.casualLeaveBalance !== null) ? user.casualLeaveBalance : 2,
       sickLeaveBalance: (user.sickLeaveBalance !== undefined && user.sickLeaveBalance !== null) ? user.sickLeaveBalance : 2,
       avatar: user.avatar || '',
@@ -767,6 +829,24 @@ const AdminPage = () => {
             >
               Payroll
             </button>
+            <button
+              onClick={() => setActiveTab('export')}
+              style={{
+                padding: '0.625rem 1.25rem',
+                borderRadius: '0.75rem',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: activeTab === 'export'
+                  ? 'linear-gradient(135deg, var(--accent-indigo), var(--accent-violet))'
+                  : 'rgba(255,255,255,0.05)',
+                color: activeTab === 'export' ? 'white' : 'var(--text-secondary)',
+              }}
+            >
+              Export
+            </button>
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', width: '100%', justifyContent: 'flex-start' }}>
@@ -793,6 +873,7 @@ const AdminPage = () => {
                 style={{ maxWidth: '160px', height: '40px' }}
               />
             )}
+            {activeTab === 'export' && <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', alignSelf: 'center' }}>Date range in calendar dates (data stored as IST workdays).</span>}
           </div>
         </div>
 
@@ -1462,12 +1543,36 @@ const AdminPage = () => {
                     </select>
                   </div>
                   <div>
+                    <label className="label-style">Date of birth</label>
+                    <input type="date" className="input-field" value={profileForm.dateOfBirth} onChange={(e) => setProfileForm({...profileForm, dateOfBirth: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="label-style">Contact no.</label>
+                    <input type="text" className="input-field" value={profileForm.contactNo} onChange={(e) => setProfileForm({...profileForm, contactNo: e.target.value})} placeholder="+91 9876543210" />
+                  </div>
+                  <div>
+                    <label className="label-style">Nationality</label>
+                    <input type="text" className="input-field" value={profileForm.nationality} onChange={(e) => setProfileForm({...profileForm, nationality: e.target.value})} placeholder="e.g. Indian" />
+                  </div>
+                  <div>
+                    <label className="label-style">Aadhaar number</label>
+                    <input type="text" className="input-field" value={profileForm.aadharNumber} onChange={(e) => setProfileForm({...profileForm, aadharNumber: e.target.value})} placeholder="12-digit Aadhaar" />
+                  </div>
+                  <div>
                     <label className="label-style">Account Number</label>
                     <input type="text" className="input-field" value={profileForm.accountNumber} onChange={(e) => setProfileForm({...profileForm, accountNumber: e.target.value})} />
                   </div>
                   <div>
                     <label className="label-style">Bank Name</label>
                     <input type="text" className="input-field" value={profileForm.bankName} onChange={(e) => setProfileForm({...profileForm, bankName: e.target.value})} placeholder="e.g. HDFC Bank" />
+                  </div>
+                  <div>
+                    <label className="label-style">Name in bank</label>
+                    <input type="text" className="input-field" value={profileForm.nameInBank} onChange={(e) => setProfileForm({...profileForm, nameInBank: e.target.value})} placeholder="As per passbook" />
+                  </div>
+                  <div>
+                    <label className="label-style">IFSC code</label>
+                    <input type="text" className="input-field" value={profileForm.ifscCode} onChange={(e) => setProfileForm({...profileForm, ifscCode: e.target.value.toUpperCase()})} placeholder="e.g. HDFC0001234" />
                   </div>
                   <div>
                     <label className="label-style">PF Account Number</label>
@@ -1502,7 +1607,15 @@ const AdminPage = () => {
                     <input type="text" className="input-field" value={profileForm.avatar} onChange={(e) => setProfileForm({...profileForm, avatar: e.target.value})} placeholder="https://example.com/photo.jpg" />
                   </div>
                   <div>
-                    <label className="label-style">Emergency Contact</label>
+                    <label className="label-style">Emergency contact person name</label>
+                    <input type="text" className="input-field" value={profileForm.emergencyContactPersonName} onChange={(e) => setProfileForm({...profileForm, emergencyContactPersonName: e.target.value})} placeholder="Full name" />
+                  </div>
+                  <div>
+                    <label className="label-style">Emergency contact person relation</label>
+                    <input type="text" className="input-field" value={profileForm.emergencyContactPersonRelation} onChange={(e) => setProfileForm({...profileForm, emergencyContactPersonRelation: e.target.value})} placeholder="e.g. Spouse, Parent" />
+                  </div>
+                  <div>
+                    <label className="label-style">Emergency contact (phone)</label>
                     <input type="text" className="input-field" value={profileForm.emergencyContact} onChange={(e) => setProfileForm({...profileForm, emergencyContact: e.target.value})} placeholder="+91 9876543210" />
                   </div>
                   <div>
@@ -1612,7 +1725,31 @@ const AdminPage = () => {
                       <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.sex || '--'}</span>
                     </div>
                     <div>
-                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Emergency Contact</label>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Date of birth</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.dateOfBirth ? formatDate(selectedUserForView.dateOfBirth) : '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Contact no.</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.contactNo || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Nationality</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.nationality || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Aadhaar number</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.aadharNumber || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Emergency contact person</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.emergencyContactPersonName || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Relation to emergency contact</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.emergencyContactPersonRelation || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Emergency contact (phone)</label>
                       <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.emergencyContact || '--'}</span>
                     </div>
                     <div>
@@ -1652,6 +1789,14 @@ const AdminPage = () => {
                     <div>
                       <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Bank Name</label>
                       <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.bankName || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Name in bank</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.nameInBank || '--'}</span>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>IFSC code</label>
+                      <span style={{ color: 'white', fontSize: '0.9rem' }}>{selectedUserForView.ifscCode || '--'}</span>
                     </div>
                     <div>
                       <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block' }}>Account Number</label>
@@ -2109,6 +2254,63 @@ const AdminPage = () => {
             </div>
           </div>
         )}
+
+        {activeTab === 'export' && (
+          <div className="glass-card" style={{ padding: '1.5rem', maxWidth: '640px' }}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Export attendance</h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+              Download one row per employee per day (all active employees). Check-in / check-out shown in IST. Maximum range: 400 days.
+            </p>
+            <form onSubmit={handleExportAttendance} style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>From</label>
+                  <input
+                    type="date"
+                    className="input-field"
+                    value={exportFrom}
+                    onChange={(e) => setExportFrom(e.target.value)}
+                    required
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>To</label>
+                  <input
+                    type="date"
+                    className="input-field"
+                    value={exportTo}
+                    onChange={(e) => setExportTo(e.target.value)}
+                    required
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="label-style" style={{ display: 'block', marginBottom: '0.35rem' }}>File format</label>
+                <select
+                  className="input-field"
+                  value={exportFormat}
+                  onChange={(e) => setExportFormat(e.target.value)}
+                  style={{ maxWidth: '280px' }}
+                >
+                  <option value="xlsx">Excel (.xlsx)</option>
+                  <option value="pdf">PDF (.pdf)</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="btn-gradient"
+                disabled={exportLoading}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', maxWidth: '220px' }}
+              >
+                <Download size={18} />
+                {exportLoading ? 'Preparing…' : 'Download'}
+              </button>
+            </form>
+          </div>
+        )}
+
         <style>{`
           @media (max-width: 768px) {
             .responsive-admin-form {

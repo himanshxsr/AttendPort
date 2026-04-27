@@ -286,11 +286,13 @@ exports.updateUserProfile = async (req, res, next) => {
     }
 
     const profileFields = [
-      'employeeCode', 'designation', 'location', 'pan', 'sex', 
-      'accountNumber', 'bankName', 'pfAccountNumber', 'pfUAN', 
+      'employeeCode', 'designation', 'location', 'pan', 'sex',
+      'accountNumber', 'bankName', 'nameInBank', 'ifscCode', 'pfAccountNumber', 'pfUAN',
       'esiNumber', 'joiningDate', 'leavingDate', 'taxRegime',
+      'dateOfBirth', 'contactNo', 'nationality', 'aadharNumber',
+      'emergencyContactPersonName', 'emergencyContactPersonRelation',
       'casualLeaveBalance', 'sickLeaveBalance', 'avatar',
-      'emergencyContact', 'bloodGroup'
+      'emergencyContact', 'bloodGroup',
     ];
 
     profileFields.forEach(field => {

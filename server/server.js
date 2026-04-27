@@ -81,6 +81,7 @@ require('./config/passport')(passport);
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
+app.use('/api/avatar', require('./routes/avatarRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 
 // Health check route for Uptime Robot
