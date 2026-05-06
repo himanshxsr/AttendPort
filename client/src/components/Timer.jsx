@@ -1,7 +1,7 @@
 import useTimer from '../hooks/useTimer';
 
-const Timer = ({ checkInTime, isCheckedIn }) => {
-  const { formatted, isRunning } = useTimer(isCheckedIn ? checkInTime : null);
+const Timer = ({ checkInTime, isCheckedIn, serverNowMs }) => {
+  const { formatted, isRunning } = useTimer(isCheckedIn ? checkInTime : null, serverNowMs);
 
   return (
     <div style={{ textAlign: 'center', padding: '2rem 0' }}>
@@ -33,7 +33,7 @@ const Timer = ({ checkInTime, isCheckedIn }) => {
         }}>
           Checked in at{' '}
           <span style={{ color: 'var(--accent-emerald)', fontWeight: 600, fontFamily: 'monospace' }}>
-            {new Date(checkInTime).toLocaleTimeString()}
+            {new Date(checkInTime).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}
           </span>
         </div>
       )}

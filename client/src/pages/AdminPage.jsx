@@ -2,13 +2,20 @@ import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import API from '../api/axios';
-import { formatDate, formatHours, getCompleteHistory } from '../utils/formatTime';
+import useServerNow from '../hooks/useServerNow';
+import { formatDate, formatHours, getCompleteHistory, getISTDateString, formatISTTime } from '../utils/formatTime';
 import { Users, User, Calendar, BarChart3, Search, Trash2, X, Edit, Eye, Phone, Activity, Download } from 'lucide-react';
 import AttendanceCalendar from '../components/AttendanceCalendar';
 import UserAvatar from '../components/UserAvatar';
 
 const AdminPage = () => {
   const { user: currentUser, loadUser } = useAuth();
+  const serverNowMs = useServerNow();
+  const serverNowDate = new Date(serverNowMs);
+  const todayStr = getISTDateString(serverNowDate);
+  const currentYear = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric' }).format(serverNowDate));
+  const currentMonthNumber = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', month: 'numeric' }).format(serverNowDate));
+  const currentMonthName = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', month: 'long' }).format(serverNowDate);
   const [attendance, setAttendance] = useState([]);
   const [users, setUsers] = useState([]);
   const [deletedUsers, setDeletedUsers] = useState([]);
@@ -31,15 +38,15 @@ const AdminPage = () => {
   const [payrollLoading, setPayrollLoading] = useState(false);
   const [payrollForm, setPayrollForm] = useState({
     userId: '',
-    month: new Date().toLocaleString('default', { month: 'long' }),
-    year: new Date().getFullYear(),
+    month: currentMonthName,
+    year: currentYear,
     earnings: [
       { label: 'Basic Salary', rate: 0, monthly: 0, arrear: 0, total: 0 }
     ],
     deductions: [
       { label: 'Provident Fund', total: 0 }
     ],
-    salaryCreditedDate: new Date().toISOString().split('T')[0]
+    salaryCreditedDate: todayStr
   });
   
   // Modal states for user-specific calendar
@@ -65,20 +72,14 @@ const AdminPage = () => {
   // Edit payslip state
   const [editingPayslipId, setEditingPayslipId] = useState(null);
 
-  const [exportFrom, setExportFrom] = useState(() => {
-    const t = new Date();
-    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-01`;
-  });
-  const [exportTo, setExportTo] = useState(() => {
-    const t = new Date();
-    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
-  });
+  const [exportFrom, setExportFrom] = useState(() => `${String(currentYear)}-${String(currentMonthNumber).padStart(2, '0')}-01`);
+  const [exportTo, setExportTo] = useState(() => todayStr);
   const [exportFormat, setExportFormat] = useState('xlsx');
   const [exportLoading, setExportLoading] = useState(false);
   const [historyEmployeeId, setHistoryEmployeeId] = useState('');
   const [historyPeriodType, setHistoryPeriodType] = useState('quarterly');
-  const [historyYear, setHistoryYear] = useState(() => String(new Date().getFullYear()));
-  const [historyQuarter, setHistoryQuarter] = useState(() => String(Math.floor(new Date().getMonth() / 3) + 1));
+  const [historyYear, setHistoryYear] = useState(() => String(currentYear));
+  const [historyQuarter, setHistoryQuarter] = useState(() => String(Math.floor((currentMonthNumber - 1) / 3) + 1));
   const [historyFormat, setHistoryFormat] = useState('xlsx');
   const [historyExportLoading, setHistoryExportLoading] = useState(false);
 
@@ -507,7 +508,7 @@ const AdminPage = () => {
         const userLogs = attendance.filter(log => log.userId?._id === user._id);
         
         // Fill gaps with Absent records
-        const fullHistory = getCompleteHistory(user.createdAt, userLogs);
+        const fullHistory = getCompleteHistory(user.createdAt, userLogs, serverNowDate);
         
         // Ensure userId is present in virtual records for the UI
         return fullHistory.map(log => ({
@@ -531,7 +532,6 @@ const AdminPage = () => {
 
   const getStatusDisplay = (log) => {
     if (!log) return '--';
-    const todayStr = new Date().toISOString().split('T')[0];
     const isToday = log.date === todayStr;
     const isFuture = log.date > todayStr;
 
@@ -980,13 +980,13 @@ const AdminPage = () => {
                               <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <span style={{ fontSize: '0.6rem', padding: '0.05rem 0.25rem', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-indigo)', borderRadius: '0.2rem', fontWeight: 700 }}>S{idx + 1}</span>
                                 <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'white' }}>
-                                  {new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  {formatISTTime(s.startTime)}
                                 </span>
                               </div>
                             ))
                           ) : (
                             <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                              {log.checkIn ? new Date(log.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                              {log.checkIn ? formatISTTime(log.checkIn) : '—'}
                             </span>
                           )}
                         </div>
@@ -998,13 +998,13 @@ const AdminPage = () => {
                               <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <span style={{ fontSize: '0.6rem', padding: '0.05rem 0.25rem', background: 'rgba(244, 63, 94, 0.1)', color: 'var(--accent-rose)', borderRadius: '0.2rem', fontWeight: 700 }}>S{idx + 1}</span>
                                 <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'white' }}>
-                                  {s.endTime ? new Date(s.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Active'}
+                                  {s.endTime ? formatISTTime(s.endTime) : 'Active'}
                                 </span>
                               </div>
                             ))
                           ) : (
                             <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                              {log.checkIn && !log.checkOut ? 'Active' : (log.checkOut ? new Date(log.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}
+                              {log.checkIn && !log.checkOut ? 'Active' : (log.checkOut ? formatISTTime(log.checkOut) : '—')}
                             </span>
                           )}
                         </div>
@@ -1476,9 +1476,11 @@ const AdminPage = () => {
                 <AttendanceCalendar 
                   logs={getCompleteHistory(
                     selectedUserForCalendar.createdAt, 
-                    attendance.filter(log => log.userId?._id === selectedUserForCalendar._id)
+                    attendance.filter(log => log.userId?._id === selectedUserForCalendar._id),
+                    serverNowDate
                   )} 
                   holidays={holidays} 
+                  serverNowMs={serverNowMs}
                   onDateClick={(log) => setSelectedDateLog(log)}
                 />
               </div>
@@ -1515,9 +1517,9 @@ const AdminPage = () => {
                       <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '0.75rem' }}>
                         <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Timing</p>
                         <p style={{ fontSize: '0.8rem', color: 'white', fontFamily: 'monospace' }}>
-                          {selectedDateLog.checkIn ? new Date(selectedDateLog.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'} 
+                          {selectedDateLog.checkIn ? formatISTTime(selectedDateLog.checkIn) : '--:--'} 
                           {' - '}
-                          {selectedDateLog.checkOut ? new Date(selectedDateLog.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (selectedDateLog.checkIn ? 'Active' : '--:--')}
+                          {selectedDateLog.checkOut ? formatISTTime(selectedDateLog.checkOut) : (selectedDateLog.checkIn ? 'Active' : '--:--')}
                         </p>
                       </div>
                     )}
@@ -2093,7 +2095,7 @@ const AdminPage = () => {
                         </td>
                         <td>{leave.type}</td>
                         <td style={{ fontSize: '0.8rem' }}>{leave.startDate} to {leave.endDate}</td>
-                        <td style={{ fontSize: '0.8rem' }}>{new Date(leave.processedAt || leave.appliedAt).toLocaleString()}</td>
+                        <td style={{ fontSize: '0.8rem' }}>{new Date(leave.processedAt || leave.appliedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</td>
                       </tr>
                     ))}
                     {leaves.filter(l => l.status === 'Cancelled').length === 0 && (
@@ -2120,7 +2122,7 @@ const AdminPage = () => {
                     onClick={() => {
                       setEditingPayslipId(null);
                       setPayrollForm({
-                        userId: '', month: 'January', year: new Date().getFullYear(),
+                        userId: '', month: 'January', year: currentYear,
                         earnings: [{ label: 'Basic Salary', total: 0 }],
                         deductions: [{ label: 'Provident Fund', total: 0 }]
                       });

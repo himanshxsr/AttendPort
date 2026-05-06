@@ -60,6 +60,11 @@ exports.getAllAttendance = async (req, res, next) => {
 exports.getAllUsers = async (req, res, next) => {
   try {
     const users = await User.find({ isDeleted: { $ne: true } }).select('-password');
+
+    // Ensure monthly leave accrual is reflected for all users in admin list.
+    const { processLeaveAccrual } = require('./leaveController');
+    await Promise.all(users.map((u) => processLeaveAccrual(u)));
+
     res.json(users);
   } catch (error) {
     next(error);

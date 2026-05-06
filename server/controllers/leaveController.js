@@ -30,8 +30,8 @@ const eachDateInRange = (startDate, endDate) => {
 
 // Helper to update leave balances month-over-month
 const processLeaveAccrual = async (user) => {
-  const now = new Date();
-  const currentMonthStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+  // Always use IST month key to avoid device/server locale drift.
+  const currentMonthStr = getISTDateString().slice(0, 7);
   
   // Initialization for existing users who don't have these fields yet
   if (!user.lastLeaveAccrualDate) {
@@ -44,8 +44,7 @@ const processLeaveAccrual = async (user) => {
 
   if (user.lastLeaveAccrualDate !== currentMonthStr) {
     const [lastYear, lastMonth] = user.lastLeaveAccrualDate.split('-').map(Number);
-    const currYear = now.getFullYear();
-    const currMonth = now.getMonth() + 1;
+    const [currYear, currMonth] = currentMonthStr.split('-').map(Number);
     
     // Calculate difference in months
     const monthsPassed = (currYear - lastYear) * 12 + (currMonth - lastMonth);
@@ -58,6 +57,8 @@ const processLeaveAccrual = async (user) => {
     }
   }
 };
+
+exports.processLeaveAccrual = processLeaveAccrual;
 
 // @desc    Apply for leave
 // @route   POST /api/attendance/apply-leave

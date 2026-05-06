@@ -1,53 +1,46 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const useTimer = (checkInTime) => {
+const useTimer = (checkInTime, serverNowMs) => {
   const [elapsed, setElapsed] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef(null);
+  const anchorElapsedRef = useRef(0);
+  const perfStartRef = useRef(0);
 
-  const start = useCallback((serverCheckInTime) => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-
-    const checkIn = new Date(serverCheckInTime).getTime();
-
-    const tick = () => {
-      const now = Date.now();
-      setElapsed(now - checkIn);
-    };
-
-    tick(); // initial tick
-    intervalRef.current = setInterval(tick, 1000);
-    setIsRunning(true);
-  }, []);
-
-  const stop = useCallback(() => {
+  useEffect(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    setIsRunning(false);
-  }, []);
 
-  const reset = useCallback(() => {
-    stop();
-    setElapsed(0);
-  }, [stop]);
+    if (!checkInTime) return undefined;
 
-  useEffect(() => {
-    if (checkInTime) {
-      start(checkInTime);
-    } else {
-      reset();
-    }
+    const checkInMs = new Date(checkInTime).getTime();
+    const initialNow = Number.isFinite(serverNowMs) ? serverNowMs : checkInMs;
+    anchorElapsedRef.current = Math.max(0, initialNow - checkInMs);
+    perfStartRef.current =
+      typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : 0;
+
+    intervalRef.current = setInterval(() => {
+      if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+        const deltaMs = performance.now() - perfStartRef.current;
+        setElapsed(anchorElapsedRef.current + deltaMs);
+        return;
+      }
+      setElapsed(anchorElapsedRef.current);
+    }, 1000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [checkInTime, start, reset]);
+  }, [checkInTime, serverNowMs]);
 
-  const hours = Math.floor(elapsed / 3600000);
-  const minutes = Math.floor((elapsed % 3600000) / 60000);
-  const seconds = Math.floor((elapsed % 60000) / 1000);
+  const safeElapsed = checkInTime ? Math.max(0, elapsed) : 0;
+  const noop = useCallback(() => {}, []);
+  const hours = Math.floor(safeElapsed / 3600000);
+  const minutes = Math.floor((safeElapsed % 3600000) / 60000);
+  const seconds = Math.floor((safeElapsed % 60000) / 1000);
 
   const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
@@ -57,10 +50,10 @@ const useTimer = (checkInTime) => {
     seconds,
     elapsed,
     formatted,
-    isRunning,
-    start,
-    stop,
-    reset,
+    isRunning: Boolean(checkInTime),
+    start: noop,
+    stop: noop,
+    reset: noop,
   };
 };
 

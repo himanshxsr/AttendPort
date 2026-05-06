@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logo from '../assets/black email.jpg';
+import { getEstimatedServerNowDate } from './serverTime';
 
 // Helper to convert number to Indian currency words
 const numberToWords = (num) => {
@@ -211,7 +212,8 @@ export const generatePayslipPDF = (user, payslip, liveBalances = null) => {
   // Generation Timestamp at bottom
   doc.setFontSize(7);
   doc.setTextColor(150);
-  doc.text(`This is a computer generated payslip and does not require a signature. | Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+  const generatedAt = getEstimatedServerNowDate().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  doc.text(`This is a computer generated payslip and does not require a signature. | Generated on: ${generatedAt}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
 
   // Save the PDF
   doc.save(`Payslip_${user.name}_${payslip.month}_${payslip.year}.pdf`);

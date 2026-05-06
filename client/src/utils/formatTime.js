@@ -7,12 +7,16 @@ export const formatTime = (ms) => {
 };
 
 export const formatDate = (dateStr) => {
-  const date = new Date(dateStr);
+  const [year, month, day] = String(dateStr).split('-').map(Number);
+  const date = Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
+    ? new Date(Date.UTC(year, month - 1, day))
+    : new Date(dateStr);
   return date.toLocaleDateString('en-US', {
     weekday: 'short',
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    timeZone: 'Asia/Kolkata',
   });
 };
 
@@ -29,14 +33,14 @@ export const formatHours = (hours) => {
  * @param {Array} logs Existing attendance logs
  * @returns {Array} Complete log history
  */
-export const getCompleteHistory = (startDate, logs = []) => {
+export const getCompleteHistory = (startDate, logs = [], referenceToday = new Date()) => {
   if (!startDate) return logs;
   
   const history = [];
   const start = new Date(startDate);
   start.setHours(0, 0, 0, 0);
   
-  const today = new Date();
+  const today = new Date(referenceToday);
   today.setHours(0, 0, 0, 0);
   
   // Create a map for quick lookup: "YYYY-MM-DD" -> log
@@ -48,7 +52,7 @@ export const getCompleteHistory = (startDate, logs = []) => {
   // Iterate from start date to today
   let current = new Date(start);
   while (current <= today) {
-    const dateStr = current.toISOString().split('T')[0];
+    const dateStr = getISTDateString(current);
     
     if (logMap.has(dateStr)) {
       history.push(logMap.get(dateStr));
@@ -81,4 +85,32 @@ export const getISTDateString = (date = new Date()) => {
     month: '2-digit',
     day: '2-digit'
   }).format(date);
+};
+
+export const getISTHour = (date = new Date()) => {
+  return Number(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      hour12: false,
+    }).format(date),
+  );
+};
+
+export const formatISTDateLong = (dateLike) => {
+  return new Date(dateLike).toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'Asia/Kolkata',
+  });
+};
+
+export const formatISTTime = (dateLike) => {
+  return new Date(dateLike).toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Kolkata',
+  });
 };

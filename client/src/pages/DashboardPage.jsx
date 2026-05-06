@@ -6,7 +6,8 @@ import Timer from '../components/Timer';
 import AttendanceLogs from '../components/AttendanceLogs';
 import AttendanceCalendar from '../components/AttendanceCalendar';
 import UserAvatar from '../components/UserAvatar';
-import { formatHours, getCompleteHistory, getISTDateString } from '../utils/formatTime';
+import useServerNow from '../hooks/useServerNow';
+import { formatHours, getCompleteHistory, getISTDateString, getISTHour, formatISTDateLong, formatISTTime } from '../utils/formatTime';
 import { Clock, CalendarDays, TrendingUp, CheckCircle, Trash2 } from 'lucide-react';
 
 const DashboardPage = () => {
@@ -26,6 +27,9 @@ const DashboardPage = () => {
   const [leaveLoading, setLeaveLoading] = useState(false);
   const [userPayslips, setUserPayslips] = useState([]);
   const [leaveBalances, setLeaveBalances] = useState({ casual: 0, sick: 0 });
+  const serverNowMs = useServerNow();
+  const serverNowDate = new Date(serverNowMs);
+  const todayStr = getISTDateString(serverNowDate);
 
   useEffect(() => {
     fetchData();
@@ -48,7 +52,7 @@ const DashboardPage = () => {
       setUserPayslips(payslipsRes.data);
       
       // Fill gaps with Absent records from the day user joined
-      const fullHistory = getCompleteHistory(user.createdAt, logsRes.data);
+      const fullHistory = getCompleteHistory(user.createdAt, logsRes.data, serverNowDate);
       setLogs(fullHistory);
 
       // Determine if user is currently checked in
@@ -136,19 +140,17 @@ const DashboardPage = () => {
   const activeSession = (todayData.workSessions || []).find((s) => s.startTime && !s.endTime);
   const timerStartTime = activeSession ? activeSession.startTime : todayData.attendance?.checkIn;
 
-  // Stats calculations
+  // Stats calculations (based on server clock)
   const thisWeekLogs = logs.filter((log) => {
-    const logDate = new Date(log.date);
-    const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return logDate >= weekAgo;
+    const weekAgo = new Date(serverNowMs - 7 * 24 * 60 * 60 * 1000);
+    const weekAgoStr = getISTDateString(weekAgo);
+    return log.date >= weekAgoStr && log.date <= todayStr;
   });
   const totalWeekHours = thisWeekLogs.reduce((acc, log) => acc + (log.totalHours || 0), 0);
   const daysPresent = logs.filter(log => log.status !== 'Absent' && log.totalHours > 0).length;
 
   const getStatusDisplay = (log) => {
     if (!log) return '--';
-    const todayStr = getISTDateString();
     const isToday = log.date === todayStr;
     const isFuture = log.date > todayStr;
 
@@ -209,7 +211,7 @@ const DashboardPage = () => {
           <UserAvatar user={user} size="xl" />
           <div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-              Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'},{' '}
+              Good {getISTHour(serverNowDate) < 12 ? 'Morning' : getISTHour(serverNowDate) < 17 ? 'Afternoon' : 'Evening'},{' '}
               <span style={{
                 background: 'linear-gradient(135deg, var(--accent-indigo), var(--accent-violet))',
                 WebkitBackgroundClip: 'text',
@@ -225,7 +227,7 @@ const DashboardPage = () => {
               )}
             </h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {formatISTDateLong(serverNowDate)}
             </p>
           </div>
         </div>
@@ -402,7 +404,11 @@ const DashboardPage = () => {
           <>
             {/* Timer & Actions Card */}
         <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
-          <Timer checkInTime={timerStartTime} isCheckedIn={isCheckedIn} />
+          <Timer
+            checkInTime={timerStartTime}
+            isCheckedIn={isCheckedIn}
+            serverNowMs={todayData?.serverTime ? Date.parse(todayData.serverTime) : undefined}
+          />
 
           {error && (
             <div style={{
@@ -468,6 +474,7 @@ const DashboardPage = () => {
             <AttendanceCalendar 
               logs={logs} 
               holidays={holidays} 
+              serverNowMs={serverNowMs}
               onDateClick={(log) => setSelectedDateLog(log)}
             />
             
@@ -489,7 +496,7 @@ const DashboardPage = () => {
                         Performance Details
                       </h4>
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        {new Date(selectedDateLog.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        {formatISTDateLong(selectedDateLog.date)}
                       </p>
                     </div>
                   </div>
@@ -509,9 +516,9 @@ const DashboardPage = () => {
                     <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '0.75rem' }}>
                       <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Shift Timing</p>
                       <p style={{ fontSize: '0.9rem', color: 'white', fontWeight: 600 }}>
-                        {selectedDateLog.checkIn ? new Date(selectedDateLog.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'} 
+                        {selectedDateLog.checkIn ? formatISTTime(selectedDateLog.checkIn) : '--:--'} 
                         {' - '}
-                        {selectedDateLog.checkOut ? new Date(selectedDateLog.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (selectedDateLog.checkIn ? 'Active' : '--:--')}
+                        {selectedDateLog.checkOut ? formatISTTime(selectedDateLog.checkOut) : (selectedDateLog.checkIn ? 'Active' : '--:--')}
                       </p>
                     </div>
                   )}
@@ -637,7 +644,7 @@ const DashboardPage = () => {
                               {leave.status.toUpperCase()}
                             </span>
                             {(leave.status === 'Pending' || leave.status === 'Approved') && 
-                             leave.startDate >= getISTDateString() && (
+                             leave.startDate >= todayStr && (
                               <button
                                 onClick={() => handleCancelLeave(leave._id)}
                                 style={{

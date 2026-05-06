@@ -104,6 +104,39 @@ function buildEmployeeHistoryRows(logs, holidaySet) {
   });
 }
 
+function addSafeWorksheet(wb, desiredName, options) {
+  // Some worksheet names are protected/reserved by Excel/ExcelJS (e.g. "History")
+  const protectedNames = new Set(['history']);
+
+  const sanitize = (name) =>
+    (String(name || '')
+      .replace(/[\[\]\*\/\\\?:]/g, ' ') // Excel invalid chars
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 31) || 'Sheet');
+
+  const base = sanitize(desiredName);
+  const safeBase = protectedNames.has(base.toLowerCase()) ? 'Sheet' : base;
+
+  const candidates = [safeBase];
+  for (let i = 2; i <= 10; i++) {
+    candidates.push(sanitize(`${safeBase} ${i}`));
+  }
+
+  let lastErr;
+  for (const name of candidates) {
+    if (!name) continue;
+    if (protectedNames.has(name.toLowerCase())) continue;
+    try {
+      return wb.addWorksheet(name, options);
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+
+  throw lastErr || new Error('Unable to create worksheet');
+}
+
 function buildEmployeeSummary(rows, from, to, holidaySet) {
   const totalDays = daysInclusive(from, to);
   const presentDays = rows.filter((r) => r.status === 'Present').length;
@@ -372,7 +405,8 @@ exports.exportEmployeeHistory = async (req, res, next) => {
           ['Attendance %', `${summary.attendancePercent}%`],
         ].forEach((row) => summarySheet.addRow(row));
 
-        const ws = wb.addWorksheet('Attendance History', { views: [{ state: 'frozen', ySplit: 1 }] });
+        // Avoid reserved/protected worksheet names like "History"
+        const ws = addSafeWorksheet(wb, 'Employee Attendance', { views: [{ state: 'frozen', ySplit: 1 }] });
         ws.columns = [{ width: 12 }, { width: 10 }, { width: 14 }, { width: 24 }, { width: 24 }, { width: 12 }, { width: 12 }, { width: 16 }];
         ws.addRow(['Date', 'Day', 'Day Type', 'Check-in (IST)', 'Check-out (IST)', 'Total hours', 'Status', 'Leave deduction']);
         const header = ws.getRow(1);

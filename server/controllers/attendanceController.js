@@ -310,7 +310,12 @@ exports.getTodayAttendance = async (req, res, next) => {
       ? await WorkSession.find({ attendanceId: attendance._id })
       : [];
 
-    res.json({ attendance, workSessions });
+    res.json({
+      attendance,
+      workSessions,
+      serverTime: new Date().toISOString(),
+      timeZone: 'Asia/Kolkata',
+    });
   } catch (error) {
     next(error);
   }

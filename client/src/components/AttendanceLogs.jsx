@@ -1,9 +1,11 @@
-import { formatDate, formatHours, getISTDateString } from '../utils/formatTime';
+import { formatDate, formatHours, getISTDateString, formatISTTime } from '../utils/formatTime';
 import { useAuth } from '../context/AuthContext';
+import useServerNow from '../hooks/useServerNow';
 import UserAvatar from './UserAvatar';
 
 const AttendanceLogs = ({ logs, isCheckedIn }) => {
   const { user } = useAuth();
+  const serverNowMs = useServerNow();
   if (!logs || logs.length === 0) {
     return (
       <div className="glass-card" style={{ padding: '3rem 2rem', textAlign: 'center' }}>
@@ -14,7 +16,7 @@ const AttendanceLogs = ({ logs, isCheckedIn }) => {
     );
   }
 
-  const todayStr = getISTDateString();
+  const todayStr = getISTDateString(new Date(serverNowMs));
 
   return (
     <div className="glass-card" style={{ overflow: 'hidden' }}>
@@ -49,13 +51,13 @@ const AttendanceLogs = ({ logs, isCheckedIn }) => {
                           <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-indigo)', borderRadius: '0.25rem', fontWeight: 700 }}>S{idx + 1}</span>
                             <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'white' }}>
-                              {new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {formatISTTime(s.startTime)}
                             </span>
                           </div>
                         ))
                       ) : (
                         <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                          {log.checkIn ? new Date(log.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          {log.checkIn ? formatISTTime(log.checkIn) : '—'}
                         </span>
                       )}
                     </div>
@@ -67,13 +69,13 @@ const AttendanceLogs = ({ logs, isCheckedIn }) => {
                           <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', background: 'rgba(244, 63, 94, 0.1)', color: 'var(--accent-rose)', borderRadius: '0.25rem', fontWeight: 700 }}>S{idx + 1}</span>
                             <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'white' }}>
-                              {s.endTime ? new Date(s.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (isToday && isActive ? 'Active' : '—')}
+                              {s.endTime ? formatISTTime(s.endTime) : (isToday && isActive ? 'Active' : '—')}
                             </span>
                           </div>
                         ))
                       ) : (
                         <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                          {log.checkOut ? new Date(log.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          {log.checkOut ? formatISTTime(log.checkOut) : '—'}
                         </span>
                       )}
                     </div>

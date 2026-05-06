@@ -1,15 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { getISTDateString } from '../utils/formatTime';
 
-const AttendanceCalendar = ({ logs, holidays, onDateClick }) => {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [days, setDays] = useState([]);
+const AttendanceCalendar = ({ logs, holidays, onDateClick, serverNowMs }) => {
+  const safeNowMs = Number.isFinite(serverNowMs) ? serverNowMs : 0;
+  const [currentDate, setCurrentDate] = useState(() => new Date(safeNowMs));
+  const serverNowDate = new Date(safeNowMs);
+  const todayIST = getISTDateString(serverNowDate);
 
-  useEffect(() => {
-    generateCalendar();
-  }, [currentDate, logs, holidays]);
-
-  const generateCalendar = () => {
+  const days = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
 
@@ -46,19 +45,14 @@ const AttendanceCalendar = ({ logs, holidays, onDateClick }) => {
           status = log.status.toLowerCase(); // 'present', 'absent'
         } else {
           // If in the past and no log, it's Absent? 
-          const dDate = new Date(year, month, d);
-          const today = new Date();
-          today.setHours(0,0,0,0);
-          if (dDate < today) {
+          if (dateStr < todayIST) {
             status = 'absent';
           }
         }
       }
 
-      const dDate = new Date(year, month, d);
-      const todayLocalStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-      const isToday = dateStr === todayLocalStr;
-      const isFuture = dDate > new Date() && !isToday;
+      const isToday = dateStr === todayIST;
+      const isFuture = dateStr > todayIST && !isToday;
 
       calendarDays.push({
         day: d,
@@ -71,13 +65,13 @@ const AttendanceCalendar = ({ logs, holidays, onDateClick }) => {
       });
     }
 
-    setDays(calendarDays);
-  };
+    return calendarDays;
+  }, [currentDate, logs, holidays, todayIST]);
 
-  const nextMonth = () => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)));
-  const prevMonth = () => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)));
+  const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
 
-  const monthName = currentDate.toLocaleString('default', { month: 'long' });
+  const monthName = currentDate.toLocaleString('default', { month: 'long', timeZone: 'Asia/Kolkata' });
 
   return (
     <div className="glass-card" style={{ padding: '1.5rem' }}>

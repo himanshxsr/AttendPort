@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { syncServerTime } from '../utils/serverTime';
 
 // Smart URL detection: if we're on localhost, use local API; otherwise, use production Render API.
 // This prevents local .env.local settings from breaking the production build.
@@ -21,7 +22,15 @@ API.interceptors.request.use((config) => {
 
 // Handle 401 responses globally
 API.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const serverHeaderTime = response.headers?.['x-server-time'];
+    if (serverHeaderTime) {
+      syncServerTime(serverHeaderTime);
+    } else if (response.data?.serverTime) {
+      syncServerTime(response.data.serverTime);
+    }
+    return response;
+  },
   (error) => {
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
@@ -35,5 +44,11 @@ API.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Bootstrap clock sync as early as possible on app startup.
+// This reduces any temporary drift before the first feature API call returns.
+API.get('/time/now').catch(() => {
+  // Ignore startup sync failures; regular API traffic will keep syncing clock.
+});
 
 export default API;

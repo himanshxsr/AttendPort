@@ -69,8 +69,16 @@ app.use(helmet());
 // Enable CORS with restriction
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  credentials: true
+  credentials: true,
+  exposedHeaders: ['x-server-time', 'x-server-timezone'],
 }));
+
+// Publish authoritative server time on every API response.
+app.use((req, res, next) => {
+  res.setHeader('x-server-time', new Date().toISOString());
+  res.setHeader('x-server-timezone', 'Asia/Kolkata');
+  next();
+});
 
 // Passport middleware
 app.use(passport.initialize());
@@ -83,6 +91,14 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/avatar', require('./routes/avatarRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
+
+// Public server-time endpoint for client clock bootstrap.
+app.get('/api/time/now', (req, res) => {
+  res.json({
+    serverTime: new Date().toISOString(),
+    timeZone: 'Asia/Kolkata',
+  });
+});
 
 // Health check route for Uptime Robot
 app.get('/ping', (req, res) => {
